@@ -1,0 +1,15 @@
+# Root .gitignore for KhudKoJano
+node_modules/
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+dist/
+build/
+pdfs/
+reports/
+/Frontend/node_modules/
+/Frontend/dist/
+/kkj-backend/node_modules/
+/kkj-backend/pdfs/
