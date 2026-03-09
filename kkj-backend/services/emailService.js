@@ -4,11 +4,14 @@ require('dotenv').config();
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: parseInt(process.env.EMAIL_PORT),
-  secure: false,
+  secure: parseInt(process.env.EMAIL_PORT) === 465, // Use SSL for 465
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  connectionTimeout: 5000,
+  greetingTimeout: 5000,
+  socketTimeout: 5000
 });
 
 /**
@@ -16,11 +19,15 @@ const transporter = nodemailer.createTransport({
  */
 const verifyEmailConnection = async () => {
   try {
-    await transporter.verify();
+    // We use a shorter timeout for startup verification
+    const promise = transporter.verify();
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Email verification timed out')), 4000));
+    await Promise.race([promise, timeout]);
     return true;
   } catch (error) {
-    console.error('Email Verification Failed:', error.message);
-    throw error;
+    console.warn('\x1b[33m%s\x1b[0m', `⚠️  Email Warning — ${error.message}`);
+    console.warn('The server will continue to boot, but email delivery may be affected.');
+    return false;
   }
 };
 

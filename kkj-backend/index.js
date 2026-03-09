@@ -77,8 +77,12 @@ async function startServer() {
 
         // 4. Email
         const { verifyEmailConnection, sendStartupTest } = require('./services/emailService');
-        await verifyEmailConnection();
-        console.log('✅ Email      — SMTP Connection Verified');
+        const emailOk = await verifyEmailConnection();
+        if (emailOk) {
+            console.log('✅ Email      — SMTP Connection Verified');
+        } else {
+            console.log('⚠️  Email      — Connection Failed (Service will start anyway)');
+        }
 
         // 5. Razorpay
         const Razorpay = require('razorpay');
