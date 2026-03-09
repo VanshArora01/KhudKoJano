@@ -4,14 +4,17 @@ require('dotenv').config();
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: parseInt(process.env.EMAIL_PORT),
-  secure: parseInt(process.env.EMAIL_PORT) === 465, // Use SSL for 465
+  secure: parseInt(process.env.EMAIL_PORT) === 465, // Use SSL only for 465
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-  connectionTimeout: 5000,
-  greetingTimeout: 5000,
-  socketTimeout: 5000
+  tls: {
+    rejectUnauthorized: false // Helps with SSL handshake on some restricted servers
+  },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 15000
 });
 
 /**
