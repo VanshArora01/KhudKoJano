@@ -78,7 +78,7 @@ const LandingPage = () => {
                 <motion.div
                     animate={{ y: [0, 10, 0] }}
                     transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute bottom-10 left-1/2 -translate-x-1/2 text-accent-gold/40 text-[9px] md:text-[10px] tracking-[0.4em] md:tracking-[0.5em] uppercase pointer-events-none whitespace-nowrap"
+                    className="absolute bottom-10 left-50 -translate-x-1/2 text-accent-gold/40 text-[9px] md:text-[10px] tracking-[0.4em] md:tracking-[0.5em] uppercase pointer-events-none whitespace-nowrap"
                 >
                     Scroll to explore
                 </motion.div>

@@ -1,21 +1,35 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const getBaseUrl = () => {
+    let url = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    return url.endsWith('/') ? url.slice(0, -1) : url;
+};
+
+const BASE_URL = getBaseUrl();
 
 const handleResponse = async (res) => {
+    const text = await res.text();
+
     if (!res.ok) {
         let errorData;
         try {
-            errorData = await res.json();
+            errorData = JSON.parse(text);
         } catch {
-            throw new Error(`HTTP Error ${res.status}`);
+            throw new Error(`HTTP Error ${res.status}: ${text || 'Unknown Error'}`);
         }
         throw new Error(errorData.message || `HTTP Error ${res.status}`);
     }
-    return await res.json();
+
+    try {
+        return JSON.parse(text);
+    } catch (err) {
+        console.error('JSON Parse Error. Raw response:', text);
+        throw new Error('Malformed response from server');
+    }
 };
 
 export const api = {
     createOrder: async (orderData) => {
         try {
+            console.log(`Calling API: ${BASE_URL}/api/orders/create`);
             const res = await fetch(`${BASE_URL}/api/orders/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

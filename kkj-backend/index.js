@@ -14,29 +14,18 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Request Logger
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 // Middleware
 app.use(helmet({
     contentSecurityPolicy: false,
 }));
 
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:8080',
-    'http://localhost:3000',
-    process.env.FRONTEND_URL
-].filter(Boolean);
-
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-}));
+app.use(cors()); // Allow all for testing - fix later with specific origins
 app.use(express.json());
 
 // Routes
@@ -45,6 +34,15 @@ app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
     res.send('Khud Ko Jaano Backend API is running...');
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('Unhandled Error:', err);
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Internal server error'
+    });
 });
 
 // Startup Sequence
