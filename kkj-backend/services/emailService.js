@@ -54,6 +54,9 @@ const sendUserConfirmationEmail = async (userData, orderId) => {
   const { name, email, plan } = userData;
   const deliveryTime = plan === 'fasttrack' ? 'within 2 hours' : 'within 24 hours';
 
+  // Brevo/SMTP often needs the 'from' to be the verified account address
+  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+
   const htmlContent = `
     <div style="background-color: #07071a; color: #e8e8f0; font-family: 'Cinzel', serif; padding: 40px; text-align: center; border: 1px solid #c9a84c;">
       <h1 style="color: #c9a84c;">ॐ</h1>
@@ -79,15 +82,20 @@ const sendUserConfirmationEmail = async (userData, orderId) => {
   `;
 
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+    console.log(`[Email] Attempting to send confirmation to ${email} via ${fromEmail}...`);
+    const info = await transporter.sendMail({
+      from: `"Khud Ko Jaano" <${fromEmail}>`,
       to: email,
       subject: `Data Received: Your Cosmic Blueprint is Processing ✨`,
       html: htmlContent,
     });
+    console.log(`[Email] User confirmation sent: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error('User Confirmation Email Error (Non-fatal):', error.message);
+    console.error(`[Email] User Confirmation Failed for ${email}:`, error.message);
+    if (error.code === 'EENVELOPE') {
+      console.error('[Email] TIP: Check if your EMAIL_FROM address is verified in your SMTP provider dashboard (e.g. Brevo).');
+    }
     return false;
   }
 };
@@ -99,6 +107,7 @@ const sendUserConfirmationEmail = async (userData, orderId) => {
 const fs = require('fs');
 const sendAdminReportEmail = async (orderData, pdfPath) => {
   const { orderId, name, email, phone, plan, specificQuestion } = orderData;
+  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
 
   const textContent = `
 [KKJ] New Order Complete — PDF ATTACHED
@@ -127,16 +136,17 @@ ACTION: Find the attached PDF and send it to the client (${email}) manually.
       });
     }
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+    const info = await transporter.sendMail({
+      from: `"KKJ Backend" <${fromEmail}>`,
       to: process.env.ADMIN_EMAIL,
       subject: `[KKJ] NEW REPORT READY: ${orderId} | ${name}`,
       text: textContent,
       attachments
     });
+    console.log(`[Email] Admin notification sent: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error('Admin Report Email Error:', error.message);
+    console.error('[Email] Admin Report Error:', error.message);
     return false;
   }
 };
