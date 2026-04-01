@@ -217,11 +217,11 @@ async function startServer() {
         console.log('✅ Razorpay   — API keys valid');
 
         // 6. Storage
-        const pdfsDir = path.join(__dirname, 'pdfs');
-        if (!fs.existsSync(pdfsDir)) {
-            fs.mkdirSync(pdfsDir, { recursive: true });
+        const tempDir = path.join(process.cwd(), 'temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
         }
-        console.log('✅ Storage    — PDFs directory ready');
+        console.log('✅ Storage    — Temp directory ready');
 
         console.log('');
         console.log('\x1b[36m%s\x1b[0m', '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

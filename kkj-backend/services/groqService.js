@@ -11,8 +11,11 @@ const generateAstrologyReport = async (userData) => {
   const systemPrompt = `You are a legendary Vedic & KP Astrologer with 40 years of experience.
 Your tone is empathetic, wise, and deeply spiritual yet practical. 
 You avoid generic "horoscope-style" writing. Instead, you focus on deep psychological insights, 
-karmic patterns, and relatable life struggles (finding purpose, career confusion, relationship harmony, financial stability).
-Write in a way that makes the reader feel you truly understand their soul's journey.
+karmic patterns, and relatable life struggles.
+
+IMPORTANT STYLE RULE: Mix in "Hinglish" (Hindi written in English alphabet) THROUGHOUT the report. 
+It should feel like a warm, relatable Indian mentor/guru talking to their student. 
+Use common Hindi/Urdu words like 'zindagi', 'kamyabi', 'mehnat', 'duayein', 'safar', 'himmat' etc. naturally within the English sentences.
 Respond ONLY with valid raw JSON — absolutely no markdown, no code fences, no explanation text before or after.`;
 
   const userPrompt = `Generate a comprehensive "Cosmic Blueprint" (Astrology Report) for:
@@ -24,75 +27,37 @@ Current Location: ${currentLocation}
 Specific Question: ${specificQuestion}
 Analysis Level: ${plan}
 
-IMPORTANT: Keep the descriptions concise to ensure they fit properly on a printed page. Do not generate overly long paragraphs. The response MUST be a JSON object with this exact structure:
+IMPORTANT: Keep the descriptions concise. Do not exceed 6 lines per section.
+Include a specific "hinglishInsight" field (1 deep, relatable Hinglish sentence) within EVERY major object.
+
+The response MUST be a JSON object with this exact structure:
 {
-  "greeting": "A warm, 2 sentence opening addressing ${name} directly, acknowledging their journey.",
-  "mulank": {
-    "number": N,
-    "title": "A short, powerful title for this number",
-    "description": "2-3 highly relatable and concise sentences about their personality and core drivers."
-  },
-  "bhagyank": {
-    "number": N,
-    "title": "A short, powerful title for this number",
-    "description": "2-3 highly relatable and concise sentences about their destiny path and life lessons."
-  },
-  "zodiacAnalysis": {
-    "sign": "",
-    "element": "",
-    "ruling_planet": "",
-    "description": "3 concise sentences explaining how their Sun/Moon sign influences their core identity."
-  },
-  "janamPatrika": {
-    "ascendant": "",
-    "moonSign": "",
-    "overview": "A 3-4 sentence concise summary of their Lagna (Ascendant) and overall planetary alignment."
-  },
+  "greeting": "A warm, 2 sentence opening in Hinglish flavor.",
+  "mulank": { "number": N, "title": "", "description": "", "hinglishInsight": "" },
+  "bhagyank": { "number": N, "title": "", "description": "", "hinglishInsight": "" },
+  "zodiacAnalysis": { "sign": "", "element": "", "ruling_planet": "", "description": "", "hinglishInsight": "" },
+  "janamPatrika": { "ascendant": "", "moonSign": "", "overview": "", "hinglishInsight": "" },
   "planetaryPositions": [
-    { "planet": "Sun",     "position": "", "effect": "Concise effect on career/ego (1-2 sentences)" },
-    { "planet": "Moon",    "position": "", "effect": "Concise effect on mind/emotions (1-2 sentences)" },
-    { "planet": "Mars",    "position": "", "effect": "Concise effect on energy/siblings (1-2 sentences)" },
-    { "planet": "Mercury", "position": "", "effect": "Concise effect on speech/business (1-2 sentences)" },
-    { "planet": "Jupiter", "position": "", "effect": "Concise effect on wealth/wisdom (1-2 sentences)" },
-    { "planet": "Venus",   "position": "", "effect": "Concise effect on love/luxury (1-2 sentences)" },
-    { "planet": "Saturn",  "position": "", "effect": "Concise effect on karma/delays (1-2 sentences)" },
-    { "planet": "Rahu",    "position": "", "effect": "Concise effect on obsessions/fame (1-2 sentences)" },
-    { "planet": "Ketu",    "position": "", "effect": "Concise effect on spirituality/detachment (1-2 sentences)" }
+    { "planet": "Sun", "position": "", "effect": "" },
+    ... etc ...
   ],
-  "yearlyHoroscope": {
-    "theme": "A profound, 1-sentence spiritual theme for their current year",
-    "career": "2 concise sentences: Real-world advice on growth or stability.",
-    "love": "2 concise sentences: Guidance on existing relationships or finding a partner.",
-    "health": "2 concise sentences: Specific energy points and physical health advice.",
-    "finance": "2 concise sentences: Wealth creation and monetary warnings."
-  },
-  "specificAnswer": "A profound 5-6 sentence master-level analysis answering their exact question ('${specificQuestion}'). Be specific but do not exceed 6 sentences.",
-  "hinglishKarmicInsights": {
-    "title": "A short, catchy title in Hinglish (e.g., 'Aapka Karmic Safar')",
-    "content": "4-5 deep and relatable sentences in Hinglish (Hindi written in English) about their past life karma and its current impact. Use a mix of common Hindi/Urdu words like 'safal', 'pichle janam', 'sangharsh', 'naseeb', 'kamyabi' but write using English alphabet."
-  },
-  "hinglishDailyTips": {
-    "title": "A short, catchy title in Hinglish (e.g., 'Daily Kamyabi ka Mantra')",
-    "content": "4-5 practical, relatable, and motivating sentences in Hinglish (Hindi written in English) about how to manage their day-to-day energy. Use conversational Hinglish that feels like a friendly mentor's advice."
-  },
+  "planetaryHinglishInsight": "A general Hinglish summary of their planets.",
+  "yearlyHoroscope": { "theme": "", "career": "", "love": "", "health": "", "finance": "", "hinglishInsight": "" },
+  "specificAnswer": "A profound 5-6 sentence answer in Hinglish flavor.",
   "remedies": [
-    { "title": "Sacred Ritual", "description": "A specific mantra, gemstone, or daily habit for spiritual alignment (2 sentences)." },
-    { "title": "Practical Action", "description": "Something they should literally DO in the physical world to fix their problem (2 sentences)." },
-    { "title": "Mental Shift", "description": "How they should change their mindset/thoughts to manifest better results (2 sentences)." }
+    { "title": "", "description": "" },
+    ... 3 total ...
   ],
-  "closingBlessing": {
-    "sanskrit": "A relevant short Sanskrit Shlok",
-    "translation": "Deeply moving English translation"
-  }
+  "remedyHinglishInsight": "A closing Hinglish mantra of advice.",
+  "hinglishKarmicInsights": { "title": "", "content": "" },
+  "hinglishDailyTips": { "title": "", "content": "" },
+  "mahadashaAnalysis": "A deep analysis (Premium). Include some Hinglish.",
+  "tenYearTimeline": "A breakdown (Premium). Include some Hinglish.",
+  "closingBlessing": { "sanskrit": "", "translation": "" }
 }`;
 
   try {
-    // Timeout handling
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Groq AI request timed out after 60 seconds')), 60000);
-    });
-
-    const completionPromise = groq.chat.completions.create({
+    const completion = await groq.chat.completions.create({
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -102,18 +67,11 @@ IMPORTANT: Keep the descriptions concise to ensure they fit properly on a printe
       max_tokens: 6000,
     });
 
-    const completion = await Promise.race([completionPromise, timeoutPromise]);
     let content = completion.choices[0].message.content;
-
-    // Robust JSON cleaning
     content = content.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-    // Find the first { and last } to handle any extra text Groq might add
     const firstBrace = content.indexOf('{');
     const lastBrace = content.lastIndexOf('}');
-    if (firstBrace === -1 || lastBrace === -1) {
-      throw new Error('AI response did not contain valid JSON format');
-    }
     content = content.substring(firstBrace, lastBrace + 1);
 
     const parsedData = JSON.parse(content);
@@ -123,7 +81,8 @@ IMPORTANT: Keep the descriptions concise to ensure they fit properly on a printe
       'greeting', 'mulank', 'bhagyank', 'zodiacAnalysis',
       'janamPatrika', 'planetaryPositions', 'yearlyHoroscope',
       'specificAnswer', 'remedies', 'closingBlessing',
-      'hinglishKarmicInsights', 'hinglishDailyTips'
+      'hinglishKarmicInsights', 'hinglishDailyTips',
+      'mahadashaAnalysis', 'tenYearTimeline'
     ];
 
     const missingFields = requiredFields.filter(field => !parsedData[field]);

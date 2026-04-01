@@ -35,6 +35,7 @@ const PaymentPage = () => {
                 dateOfBirth: userDetails.dob,
                 timeOfBirth: userDetails.timeOfBirth,
                 placeOfBirth: userDetails.cityOfBirth,
+                currentLocation: userDetails.currentLocation,
                 specificQuestion: userDetails.specificQuestion,
                 plan: selectedPlan.plan?.toLowerCase().includes('oracle') ? 'fasttrack' : 'standard'
             };

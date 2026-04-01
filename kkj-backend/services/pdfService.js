@@ -6,12 +6,17 @@ const fs = require('fs');
 
 const os = require('os');
 const generatePDF = async (data, orderId) => {
-    const pdfsDir = path.join(__dirname, '../pdfs'); // Using a stable local directory
-    if (!fs.existsSync(pdfsDir)) {
-        fs.mkdirSync(pdfsDir, { recursive: true });
+    // 1️⃣ Use Absolute File Path (CRITICAL)
+    const tempDir = path.join(process.cwd(), 'temp'); 
+    
+    // 2️⃣ Ensure TEMP DIRECTORY EXISTS
+    if (!fs.existsSync(tempDir)) {
+        console.log("📂 Creating temp directory:", tempDir);
+        fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    const pdfPath = path.join(pdfsDir, `${orderId}.pdf`);
+    const fileName = `${orderId}.pdf`;
+    const pdfPath = path.join(tempDir, fileName);
 
     const browser = await puppeteer.launch({
         headless: 'new',

@@ -10,17 +10,21 @@ const escapeHtml = (str, fallback = '') => {
 const getReportTemplate = (data, orderId, orderDate) => {
     const safe = {
         greeting: data.greeting || '',
-        mulank: data.mulank || { number: '', title: '', description: '' },
-        bhagyank: data.bhagyank || { number: '', title: '', description: '' },
-        zodiacAnalysis: data.zodiacAnalysis || { sign: '', element: '', ruling_planet: '', description: '' },
-        janamPatrika: data.janamPatrika || { ascendant: '', moonSign: '', overview: '' },
+        mulank: data.mulank || { number: '', title: '', description: '', hinglishInsight: '' },
+        bhagyank: data.bhagyank || { number: '', title: '', description: '', hinglishInsight: '' },
+        zodiacAnalysis: data.zodiacAnalysis || { sign: '', element: '', ruling_planet: '', description: '', hinglishInsight: '' },
+        janamPatrika: data.janamPatrika || { ascendant: '', moonSign: '', overview: '', hinglishInsight: '' },
         planetaryPositions: data.planetaryPositions || [],
-        yearlyHoroscope: data.yearlyHoroscope || { theme: '', career: '', love: '', health: '', finance: '' },
+        planetaryHinglishInsight: data.planetaryHinglishInsight || '',
+        yearlyHoroscope: data.yearlyHoroscope || { theme: '', career: '', love: '', health: '', finance: '', hinglishInsight: '' },
         specificAnswer: data.specificAnswer || '',
         remedies: data.remedies || [],
+        remedyHinglishInsight: data.remedyHinglishInsight || '',
         closingBlessing: data.closingBlessing || { sanskrit: '', translation: '' },
         hinglishKarmicInsights: data.hinglishKarmicInsights || { title: 'Aapka Karmic Safar', content: 'Connecting with your soul...' },
         hinglishDailyTips: data.hinglishDailyTips || { title: 'Daily Kamyabi ka Mantra', content: 'Stay positive and keep growing.' },
+        mahadashaAnalysis: data.mahadashaAnalysis || 'Deep cosmic shift analysis...',
+        tenYearTimeline: data.tenYearTimeline || 'Next decade projection...',
         name: data.name || 'Seeker',
         plan: data.plan || 'standard',
         specificQuestion: data.specificQuestion || ''
@@ -286,6 +290,20 @@ const getReportTemplate = (data, orderId, orderDate) => {
             border-left: 3px solid var(--gold);
         }
 
+        .guru-vachan {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(201, 168, 76, 0.03);
+            border-top: 1px solid rgba(201, 168, 76, 0.2);
+            border-bottom: 1px solid rgba(201, 168, 76, 0.2);
+            text-align: center;
+            font-style: italic;
+            font-size: 14px;
+            color: var(--gold-light);
+        }
+
+        .guru-vachan::before { content: "Guru Vachan: "; font-weight: bold; font-family: 'Cinzel', serif; font-style: normal; font-size: 10px; letter-spacing: 2px; display: block; margin-bottom: 5px; opacity: 0.6; }
+
         /* Footer Branding */
         .page-footer {
             position: absolute;
@@ -386,6 +404,10 @@ const getReportTemplate = (data, orderId, orderDate) => {
             </div>
         </div>
 
+        <div class="guru-vachan">
+            ${escapeHtml(safe.mulank?.hinglishInsight)} ... ${escapeHtml(safe.bhagyank?.hinglishInsight)}
+        </div>
+
         <div class="page-footer cinzel">ॐ Khud Ko Jaano — Confidential Astrology Report</div>
     </div>
 
@@ -431,6 +453,9 @@ const getReportTemplate = (data, orderId, orderDate) => {
         <div class="card">
             <div class="card-header cinzel">Spiritual Portrait</div>
             <p style="line-height: 1.8;">${escapeHtml(safe.janamPatrika?.overview, 'An overview of your inner landscape.')}</p>
+            <div class="guru-vachan" style="margin-top: 15px; border-bottom: 0;">
+                ${escapeHtml(safe.janamPatrika?.hinglishInsight)}
+            </div>
         </div>
 
         <div class="page-footer cinzel">Prepared exclusively for ${escapeHtml(safe.name, 'Seeker')}</div>
@@ -466,6 +491,10 @@ const getReportTemplate = (data, orderId, orderDate) => {
                     `).join('')}
                 </tbody>
             </table>
+        </div>
+
+        <div class="guru-vachan">
+            ${escapeHtml(safe.planetaryHinglishInsight)}
         </div>
 
         <p style="margin-top: 30px; font-size: 13px; font-style: italic; text-align: center; opacity: 0.6;">
@@ -508,6 +537,10 @@ const getReportTemplate = (data, orderId, orderDate) => {
                 <div class="card-header cinzel">Vitality & Health</div>
                 <p style="font-size: 13px;">${escapeHtml(safe.yearlyHoroscope?.health, 'Prioritize your well-being.')}</p>
             </div>
+        </div>
+
+        <div class="guru-vachan">
+            ${escapeHtml(safe.yearlyHoroscope?.hinglishInsight)}
         </div>
 
         <div class="page-footer cinzel">ॐ Khud Ko Jaano — Celestial Timeline</div>
@@ -553,6 +586,10 @@ const getReportTemplate = (data, orderId, orderDate) => {
                 <p style="line-height: 1.6; font-size: 15px;">${escapeHtml(r.description)}</p>
             </div>
         `).join('')}
+
+        <div class="guru-vachan">
+            ${escapeHtml(safe.remedyHinglishInsight)}
+        </div>
 
         <div style="margin-top: 40px; text-align: center;">
             <div class="om-main" style="font-size: 40px; opacity: 0.3;">ॐ</div>
@@ -610,6 +647,34 @@ const getReportTemplate = (data, orderId, orderDate) => {
 
         <div class="page-footer cinzel">OM KHUD KO JAANO</div>
     </div>
+
+    ${safe.plan === 'fasttrack' ? `
+    <!-- PAGE: MAHADASHA (Premium only) -->
+    <div class="page">
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+        <div class="section-header"><h2 class="cinzel">Mahadasha Analysis</h2></div>
+        <div class="card" style="margin-top: 40px; border-left: 4px solid var(--gold); padding: 40px;">
+            <p style="font-size: 18px; line-height: 1.8;">${escapeHtml(safe.mahadashaAnalysis)}</p>
+        </div>
+        <div class="page-footer cinzel">Priority Analysis — ${escapeHtml(safe.name)}</div>
+    </div>
+
+    <!-- PAGE: 10-YEAR TIMELINE (Premium only) -->
+    <div class="page">
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+        <div class="section-header"><h2 class="cinzel">10-Year Timeline</h2></div>
+        <div class="card" style="background: rgba(201, 168, 76, 0.08); border-top: 2px solid var(--gold); margin-top: 40px; padding: 40px;">
+            <p style="font-size: 18px; line-height: 1.8; color: var(--gold-light);">${escapeHtml(safe.tenYearTimeline)}</p>
+        </div>
+        <div class="page-footer cinzel">Future Projection — KKJ</div>
+    </div>
+    ` : ''}
 
     <!-- PAGE 10: CLOSING BLESSING -->
     <div class="page cover">

@@ -14,7 +14,7 @@ const BYPASS_PAYMENT = false; // Set to false for real payments
 // POST /api/orders/create
 router.post('/create', async (req, res) => {
     try {
-        const { name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, specificQuestion, plan } = req.body;
+        const { name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion, plan } = req.body;
 
         // Validation
         const errors = [];
@@ -48,6 +48,7 @@ router.post('/create', async (req, res) => {
                 dateOfBirth,
                 timeOfBirth,
                 placeOfBirth,
+                currentLocation,
                 specificQuestion,
                 plan: plan || 'standard',
                 status: 'received',
@@ -82,6 +83,7 @@ router.post('/create', async (req, res) => {
             dateOfBirth,
             timeOfBirth,
             placeOfBirth,
+            currentLocation,
             specificQuestion,
             plan: plan || 'standard',
             status: 'awaiting_payment',
@@ -163,6 +165,7 @@ async function runPipeline(orderId) {
         let pdfPath;
         try {
             console.log(`[${order.orderId}] 📄 Generating PDF...`);
+            // 3️⃣ WAIT FOR PDF GENERATION (VERY IMPORTANT)
             pdfPath = await generatePDF({
                 ...reportData,
                 name: order.name,
@@ -170,14 +173,22 @@ async function runPipeline(orderId) {
                 specificQuestion: order.specificQuestion
             }, order.orderId);
             
+            // 7️⃣ OPTIONAL: DELAY (IF RACE CONDITION)
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // 4️⃣ VERIFY FILE EXISTS BEFORE EMAIL
+            if (!fs.existsSync(pdfPath)) {
+                console.error(`❌ [${order.orderId}] PDF NOT FOUND after generation:`, pdfPath);
+                throw new Error("PDF file not found on disk after generation trace.");
+            }
+
             order.report.pdfPath = pdfPath;
             order.report.generatedAt = new Date();
             order.status = 'ready';
             await order.save();
-            console.log(`[${order.orderId}] ✅ PDF saved at: ${pdfPath}`);
+            console.log(`[${order.orderId}] ✅ PDF verified at: ${pdfPath}`);
         } catch (err) {
             console.error(`[${order.orderId}] ❌ PDF FAILED:`, err.message);
-            console.error(err.stack);
             order.status = 'error';
             order.adminNotes = (order.adminNotes || '') + ' PDF failed: ' + err.message;
             await order.save();
@@ -187,7 +198,8 @@ async function runPipeline(orderId) {
         // Step 4 — Admin email
         try {
             console.log(`[${order.orderId}] 📧 Sending admin alert to: ${process.env.ADMIN_EMAIL}`);
-            await sendAdminReportEmail(order, pdfPath);
+            // Ensure we use the latest order data
+            await sendAdminReportEmail(order);
             console.log(`[${order.orderId}] ✅ Admin email sent`);
             console.log(`[${order.orderId}] 🎉 Pipeline complete`);
         } catch (err) {

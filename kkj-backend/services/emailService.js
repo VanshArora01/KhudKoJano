@@ -127,16 +127,26 @@ const sendAdminReportEmail = async (order) => {
   const { orderId, name, email, phone, plan, createdAt, specificQuestion } = order;
   const pdfPath = order.report?.pdfPath;
 
-  console.log(`[Email] Preparing Admin alert for: ${orderId}`);
+  console.log("------------------------------------------");
+  console.log("📄 ADMIN EMAIL ATTEMPT FOR:", orderId);
+  console.log("📄 PDF PATH:", pdfPath);
 
-  const pdfExists = pdfPath && fs.existsSync(pdfPath);
-  console.log(`PDF exists: ${pdfExists}, path: ${pdfPath}`);
+  // 4️⃣ VERIFY FILE EXISTS BEFORE EMAIL
+  if (!pdfPath || !fs.existsSync(pdfPath)) {
+    console.error("❌ PDF NOT FOUND/NOT GENERATED:", pdfPath);
+    // Don't returned, still send text but mark failure
+  } else {
+    console.log("📦 FILE EXISTS:", true);
+    console.log("📏 FILE SIZE:", fs.statSync(pdfPath).size, "bytes");
+  }
 
   const attachments = [];
-  if (pdfExists) {
+  if (pdfPath && fs.existsSync(pdfPath)) {
+    // 5️⃣ USE CORRECT ATTACHMENT FORMAT
     attachments.push({
       filename: `KhudKoJaano-${orderId}-CosmicBlueprint.pdf`,
-      path: pdfPath
+      path: pdfPath,
+      contentType: 'application/pdf'
     });
   }
 
