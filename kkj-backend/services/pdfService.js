@@ -20,6 +20,7 @@ const generatePDF = async (data, orderId) => {
 
     const browser = await puppeteer.launch({
         headless: 'new',
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -27,9 +28,10 @@ const generatePDF = async (data, orderId) => {
             '--disable-gpu',
             '--no-first-run',
             '--no-zygote',
-            '--disable-extensions'
+            '--disable-extensions',
+            '--single-process'
         ],
-        timeout: 30000
+        timeout: 60000 
     });
 
     let page;
