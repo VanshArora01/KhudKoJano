@@ -42,6 +42,35 @@ const PaymentPage = () => {
             // 1. Create order on backend
             const order = await api.createOrder(orderData);
 
+            // TEMPORARY BYPASS CHECK
+            if (order.bypass) {
+                console.log("⚠️ Payment bypassed for testing");
+                
+                // ⚙️ STEP 2 (USER): Call the direct submission route
+                console.log("⏳ Triggering direct flow via /submit-form...");
+                try {
+                    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                    const response = await fetch(`${baseUrl}/submit-form`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...orderData, orderId: order.orderId }),
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log("✅ Direct flow triggered successfully");
+                    } else {
+                        throw new Error(result.error || "Submission failed");
+                    }
+                } catch (submitErr) {
+                    console.error("❌ Submission error:", submitErr);
+                }
+
+                sessionStorage.setItem('orderId', order.orderId);
+                setLoading(false);
+                navigate('/confirmation');
+                return;
+            }
+
             // 2. Open Razorpay checkout
             const options = {
                 key: import.meta.env.VITE_RAZORPAY_KEY_ID,
