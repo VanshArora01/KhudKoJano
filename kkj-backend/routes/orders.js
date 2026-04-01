@@ -9,6 +9,8 @@ const { createRazorpayOrder, verifyPaymentSignature } = require('../services/raz
 
 const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
 
+const BYPASS_PAYMENT = false; // Set to false for real payments
+
 // POST /api/orders/create
 router.post('/create', async (req, res) => {
     try {
@@ -34,6 +36,41 @@ router.post('/create', async (req, res) => {
 
         const orderId = `KKJ-${nanoid()}`;
         const amount = plan === 'fasttrack' ? 19900 : 9900;
+
+        if (BYPASS_PAYMENT) {
+            console.log("⚠️ Payment bypassed for testing");
+            
+            const newOrder = new Order({
+                orderId,
+                name,
+                email,
+                phone,
+                dateOfBirth,
+                timeOfBirth,
+                placeOfBirth,
+                specificQuestion,
+                plan: plan || 'standard',
+                status: 'received',
+                payment: {
+                    status: 'paid',
+                    amount: amount,
+                    razorpayOrderId: 'BYPASS_TEST'
+                }
+            });
+
+            await newOrder.save();
+            console.log(`[${orderId}] ✅ Order created with BYPASS mode — starting pipeline`);
+
+            // Trigger pipeline immediately
+            runPipeline(orderId);
+
+            return res.status(201).json({
+                success: true,
+                orderId,
+                message: "Payment bypassed, processing started",
+                bypass: true
+            });
+        }
 
         const razorpayOrder = await createRazorpayOrder(orderId, plan);
 
@@ -79,50 +116,89 @@ async function runPipeline(orderId) {
     let order;
     try {
         order = await Order.findOne({ orderId });
-        if (!order) return;
+        if (!order) {
+            console.error(`[${orderId}] ❌ Order not found in database`);
+            return;
+        }
 
-        // 1. Send confirmation email to user immediately
-        console.log(`[${orderId}] Sending confirmation to ${order.email}...`);
-        await sendUserConfirmationEmail(order, orderId);
+        console.log(`[${order.orderId}] 🚀 Pipeline started`);
 
-        // 2. Set status to generating
-        order.status = 'generating';
-        await order.save();
+        // Step 1 — Confirmation email (send first, before AI)
+        try {
+            if (order.confirmationEmailSent) {
+                console.log(`[${order.orderId}] 📧 Confirmation email already sent, skipping...`);
+            } else {
+                console.log(`[${order.orderId}] 📧 Sending confirmation to: ${order.email}`);
+                await sendUserConfirmationEmail(order, order.orderId);
+                order.confirmationEmailSent = true;
+                await order.save();
+                console.log(`[${order.orderId}] ✅ Confirmation email sent`);
+            }
+        } catch (err) {
+            console.error(`[${order.orderId}] ❌ Confirmation email FAILED:`, err.message);
+            console.error(err.stack);
+            // do NOT return — continue to next step
+        }
 
-        // 3. Call Groq AI for report JSON
-        console.log(`[${orderId}] 🤖 Calling Groq AI...`);
-        const reportData = await generateAstrologyReport(order);
-        order.report.rawContent = JSON.stringify(reportData);
-        await order.save();
+        // Step 2 — Groq AI
+        let reportData;
+        try {
+            order.status = 'generating';
+            await order.save();
+            console.log(`[${order.orderId}] 🤖 Calling Groq...`);
+            reportData = await generateAstrologyReport(order);
+            order.report.rawContent = JSON.stringify(reportData);
+            await order.save();
+            console.log(`[${order.orderId}] ✅ Groq report generated`);
+        } catch (err) {
+            console.error(`[${order.orderId}] ❌ Groq FAILED:`, err.message);
+            console.error(err.stack);
+            order.status = 'error';
+            order.adminNotes = (order.adminNotes || '') + ' Groq failed: ' + err.message;
+            await order.save();
+            return; // can't generate PDF without report
+        }
 
-        // 4. Generate PDF
-        console.log(`[${orderId}] ✅ Generating PDF...`);
-        const pdfPath = await generatePDF({
-            ...reportData,
-            name: order.name,
-            plan: order.plan,
-            specificQuestion: order.specificQuestion
-        }, orderId);
+        // Step 3 — PDF
+        let pdfPath;
+        try {
+            console.log(`[${order.orderId}] 📄 Generating PDF...`);
+            pdfPath = await generatePDF({
+                ...reportData,
+                name: order.name,
+                plan: order.plan,
+                specificQuestion: order.specificQuestion
+            }, order.orderId);
+            
+            order.report.pdfPath = pdfPath;
+            order.report.generatedAt = new Date();
+            order.status = 'ready';
+            await order.save();
+            console.log(`[${order.orderId}] ✅ PDF saved at: ${pdfPath}`);
+        } catch (err) {
+            console.error(`[${order.orderId}] ❌ PDF FAILED:`, err.message);
+            console.error(err.stack);
+            order.status = 'error';
+            order.adminNotes = (order.adminNotes || '') + ' PDF failed: ' + err.message;
+            await order.save();
+            return;
+        }
 
-        order.report.pdfPath = pdfPath;
-        console.log(`[${orderId}] ✅ PDF generated at ${pdfPath}`);
-
-        // 5. Update order to ready
-        order.status = 'ready';
-        order.report.generatedAt = new Date();
-        await order.save();
-
-        // 6. Send PDF to Admin
-        console.log(`[${orderId}] Sending PDF to Admin (${process.env.ADMIN_EMAIL})...`);
-        await sendAdminReportEmail(order, pdfPath);
-
-        console.log(`[${orderId}] ✅ Pipeline complete.`);
-
+        // Step 4 — Admin email
+        try {
+            console.log(`[${order.orderId}] 📧 Sending admin alert to: ${process.env.ADMIN_EMAIL}`);
+            await sendAdminReportEmail(order, pdfPath);
+            console.log(`[${order.orderId}] ✅ Admin email sent`);
+            console.log(`[${order.orderId}] 🎉 Pipeline complete`);
+        } catch (err) {
+            console.error(`[${order.orderId}] ❌ Admin email FAILED:`, err.message);
+            console.error(err.stack);
+        }
     } catch (pipelineError) {
-        console.error(`[${orderId}] Pipeline Error:`, pipelineError);
+        console.error(`[${orderId}] ❌ CRITICAL Pipeline Error:`, pipelineError.message);
         if (order) {
             order.status = 'error';
-            order.adminNotes = (order.adminNotes || '') + `\nPipeline Error: ${pipelineError.message}`;
+            order.adminNotes = (order.adminNotes || '') + `\nCritical Error: ${pipelineError.message}`;
             await order.save();
         }
     }

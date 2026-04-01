@@ -1,47 +1,42 @@
 const nodemailer = require('nodemailer');
+const fs = require('fs');
 require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT),
-  secure: parseInt(process.env.EMAIL_PORT) === 465, // Use SSL only for 465
+  host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+  port: parseInt(process.env.EMAIL_PORT) || 587,
+  secure: false,          // MUST be false for port 587
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS
   },
   tls: {
-    rejectUnauthorized: false // Helps with SSL handshake on some restricted servers
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 15000
+    rejectUnauthorized: false  // prevents TLS errors on Render/Railway
+  }
 });
 
 /**
- * 0. Startup Verification
+ * Startup Verification
  */
 const verifyEmailConnection = async () => {
   try {
-    // We use a shorter timeout for startup verification
-    const promise = transporter.verify();
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Email verification timed out')), 4000));
-    await Promise.race([promise, timeout]);
+    await transporter.verify();
     return true;
   } catch (error) {
     console.warn('\x1b[33m%s\x1b[0m', `⚠️  Email Warning — ${error.message}`);
-    console.warn('The server will continue to boot, but email delivery may be affected.');
     return false;
   }
 };
 
 const sendStartupTest = async () => {
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: process.env.ADMIN_EMAIL,
       subject: `[KKJ] Backend Startup Test — ${new Date().toLocaleTimeString()}`,
       text: 'KhudKoJano backend has started successfully.'
     });
+    console.log('Startup test email sent:', info.messageId);
     return true;
   } catch (error) {
     console.error('Email Startup Test Failed:', error.message);
@@ -51,110 +46,149 @@ const sendStartupTest = async () => {
 
 /**
  * 1. User Confirmation Email
- * Sent immediately after order received.
  */
-const sendUserConfirmationEmail = async (userData, orderId) => {
-  const { name, email, plan } = userData;
-  const deliveryTime = plan === 'fasttrack' ? 'within 2 hours' : 'within 24 hours';
+const sendUserConfirmationEmail = async (order) => {
+  const { name, email, plan, specificQuestion, orderId } = order;
+  const firstName = name.split(' ')[0];
 
-  // Brevo/SMTP often needs the 'from' to be the verified account address
-  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  console.log(`[Email] Preparing confirmation for: ${email}`);
 
-  const htmlContent = `
-    <div style="background-color: #07071a; color: #e8e8f0; font-family: 'Cinzel', serif; padding: 40px; text-align: center; border: 1px solid #c9a84c;">
-      <h1 style="color: #c9a84c;">ॐ</h1>
-      <h2 style="color: #c9a84c; letter-spacing: 2px;">Data Received — Processing Your Chart</h2>
-      <p style="font-size: 16px; font-weight: 300; line-height: 1.6; margin-top: 30px;">
-        Greetings ${name},<br><br>
-        Your bio-data and birth details have been successfully received and are currently under processing. 
-        Our astrologers have begun the celestial mapping for your personalized Cosmic Blueprint.
-      </p>
-      <div style="background: rgba(201, 168, 76, 0.1); border: 1px solid #c9a84c; border-radius: 8px; margin: 30px auto; padding: 20px; max-width: 500px;">
-        <p style="font-size: 14px; opacity: 0.8;">
-          Your report will be delivered to this email address <strong>${deliveryTime}</strong>.
-        </p>
+  const htmlBody = `
+    <div style="background-color: #07071a; color: #e8e8f0; font-family: 'Lato', Arial, sans-serif; padding: 40px; margin: 0; min-height: 100vh;">
+      <div style="max-width: 600px; margin: 0 auto; border: 1px solid #c9a84c; background-color: #0c0c2a;">
+        <!-- Gold Header Bar -->
+        <div style="background-color: #c9a84c; color: #07071a; padding: 15px; text-align: center; font-family: 'Cinzel', serif; font-weight: bold; letter-spacing: 2px;">
+          ॐ KHUD KO JAANO
+        </div>
+
+        <div style="padding: 40px;">
+          <p style="font-size: 18px; margin-bottom: 25px;">Dear ${firstName},</p>
+
+          <p style="line-height: 1.6; margin-bottom: 20px;">
+            We have received your birth details and our astrologers
+            have begun the sacred process of reading your cosmic chart.
+          </p>
+
+          <p style="margin-bottom: 10px; font-weight: bold; color: #c9a84c;">Your question to the stars:</p>
+          <div style="border-left: 3px solid #c9a84c; padding-left: 15px; font-style: italic; color: #f0d080; margin-bottom: 25px; line-height: 1.6;">
+            "${specificQuestion}"
+          </div>
+
+          <p style="line-height: 1.6; margin-bottom: 20px;">
+            We are carefully analysing the position of the planets
+            at the exact moment of your birth. Your personalised
+            Cosmic Blueprint is being prepared with full attention
+            and devotion.
+          </p>
+
+          <p style="line-height: 1.6; margin-bottom: 25px;">
+            You will receive your complete report <strong>${plan === 'fasttrack' ? 'within 2 hours' : 'within 24 hours'}</strong>.
+          </p>
+
+          <div style="background: rgba(201, 168, 76, 0.1); border: 1px solid rgba(201, 168, 76, 0.3); padding: 15px; text-align: center; border-radius: 4px; margin-bottom: 30px;">
+            <p style="margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #c9a84c;">Your Order ID</p>
+            <p style="margin: 5px 0 0; font-size: 20px; font-weight: bold; font-family: 'Cinzel', serif; color: #c9a84c;">${orderId}</p>
+          </div>
+
+          <p style="line-height: 1.6; margin-bottom: 30px;">
+            Please keep an eye on this inbox — your blueprint
+            will be delivered here once it is ready.
+          </p>
+
+          <p style="margin-bottom: 5px;">With cosmic blessings,</p>
+          <p style="font-weight: bold; color: #c9a84c;">The Khud Ko Jaano Team</p>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 20px; text-align: center; font-size: 11px; color: #888; border-top: 1px solid rgba(201, 168, 76, 0.1);">
+          ॐ Khud Ko Jaano  •  khudkojano@gmail.com
+        </div>
       </div>
-      <div style="background: #c9a84c; color: #07071a; display: inline-block; padding: 10px 25px; border-radius: 50px; font-weight: bold; margin-top: 30px; letter-spacing: 1px;">
-        Order ID: ${orderId}
-      </div>
-      <p style="font-size: 12px; margin-top: 40px; opacity: 0.5;">
-        May your stars always guide you home.<br>
-        <strong>Khud Ko Jaano</strong>
-      </p>
     </div>
   `;
 
-  try {
-    console.log(`[Email] Attempting to send confirmation to ${email} via ${fromEmail}...`);
-    const info = await transporter.sendMail({
-      from: `"Khud Ko Jaano" <${fromEmail}>`,
-      to: email,
-      subject: `Data Received: Your Cosmic Blueprint is Processing ✨`,
-      html: htmlContent,
-    });
-    console.log(`[Email] User confirmation sent: ${info.messageId}`);
-    return true;
-  } catch (error) {
-    console.error(`[Email] User Confirmation Failed for ${email}:`, error.message);
-    if (error.code === 'EENVELOPE') {
-      console.error('[Email] TIP: Check if your EMAIL_FROM address is verified in your SMTP provider dashboard (e.g. Brevo).');
-    }
-    return false;
-  }
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: `Your Stars Are Being Read, ${firstName} ✨`,
+    html: htmlBody
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  console.log('Confirmation messageId:', info.messageId);
+  console.log('Confirmation response:', info.response);
+  return info;
 };
 
 /**
  * 2. Admin Report Email
- * Sent to Admin with PDF attachment and client info.
  */
-const fs = require('fs');
-const sendAdminReportEmail = async (orderData, pdfPath) => {
-  const { orderId, name, email, phone, plan, specificQuestion } = orderData;
-  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+const sendAdminReportEmail = async (order) => {
+  const { orderId, name, email, phone, plan, createdAt, specificQuestion } = order;
+  const pdfPath = order.report?.pdfPath;
 
-  const textContent = `
-[KKJ] New Order Complete — PDF ATTACHED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  console.log(`[Email] Preparing Admin alert for: ${orderId}`);
 
-Order ID: ${orderId}
-Client Name: ${name}
-Client Email: ${email}
-Phone: ${phone}
-Plan Type: ${plan}
+  const pdfExists = pdfPath && fs.existsSync(pdfPath);
+  console.log(`PDF exists: ${pdfExists}, path: ${pdfPath}`);
 
-User's Specific Inquiry:
+  const attachments = [];
+  if (pdfExists) {
+    attachments.push({
+      filename: `KhudKoJaano-${orderId}-CosmicBlueprint.pdf`,
+      path: pdfPath
+    });
+  }
+
+  const textBody = `
+New Cosmic Blueprint is ready to send.
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+ORDER DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━
+Order ID:   [${orderId}]
+Name:       [${name}]
+Email:      [${email}]
+Phone:      [${phone}]
+Plan:       [${plan}] 
+Submitted:  [${createdAt}]
+
+Their Question:
 "${specificQuestion}"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ACTION: Find the attached PDF and send it to the client (${email}) manually.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  `;
+━━━━━━━━━━━━━━━━━━━━━━━━
+ACTION REQUIRED
+━━━━━━━━━━━━━━━━━━━━━━━━
+The PDF report is attached to this email.
+${pdfExists ? '' : '⚠️ PDF generation failed — check server logs'}
 
-  try {
-    const attachments = [];
-    if (pdfPath && fs.existsSync(pdfPath)) {
-      attachments.push({
-        filename: `Astrology_Report_${orderId}.pdf`,
-        path: pdfPath
-      });
-    }
+Please:
+1. Download the attached PDF
+2. Email it personally to: ${email}
+3. Use a warm human tone — do NOT forward 
+   this email directly
+4. Mark the order as sent in the admin panel
 
-    const info = await transporter.sendMail({
-      from: `"KKJ Backend" <${fromEmail}>`,
-      to: process.env.ADMIN_EMAIL,
-      subject: `[KKJ] NEW REPORT READY: ${orderId} | ${name}`,
-      text: textContent,
-      attachments
-    });
-    console.log(`[Email] Admin notification sent: ${info.messageId}`);
-    return true;
-  } catch (error) {
-    console.error('[Email] Admin Report Error:', error.message);
-    return false;
-  }
+Reminder: The user is expecting their report 
+within ${plan === 'fasttrack' ? '2 hours' : '24 hours'}. Please send promptly.
+`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: process.env.ADMIN_EMAIL,
+    subject: `[KKJ] New Report Ready — ${orderId} | ${plan} | ${name}`,
+    text: textBody,
+    attachments
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+  console.log('Admin messageId:', info.messageId);
+  console.log('Admin response:', info.response);
+  return info;
 };
 
 module.exports = {
+  transporter, // Exporting for debug route
   verifyEmailConnection,
   sendStartupTest,
   sendUserConfirmationEmail,

@@ -10,6 +10,9 @@ require('dotenv').config();
 
 const orderRoutes = require('./routes/orders');
 const adminRoutes = require('./routes/admin');
+const { generatePDF } = require('./services/pdfService');
+const { sendUserConfirmationEmail, sendAdminReportEmail } = require('./services/emailService');
+const puppeteer = require('puppeteer');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -34,6 +37,128 @@ app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
     res.send('Khud Ko Jaano Backend API is running...');
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DEBUG ROUTES (TEMPORARY — Remove after deploy)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+app.get('/api/debug/env', (req, res) => {
+  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' })
+  }
+  const vars = [
+    'MONGO_URI', 'GROQ_API_KEY',
+    'EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 
+    'EMAIL_PASS', 'EMAIL_FROM', 'ADMIN_EMAIL',
+    'ADMIN_SECRET', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'
+  ]
+  const result = {}
+  vars.forEach(v => {
+    result[v] = process.env[v] ? '✅ SET' : '❌ MISSING'
+  })
+  res.json(result)
+})
+
+app.get('/api/debug/test-email', async (req, res) => {
+  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' })
+  }
+  
+  try {
+    const { transporter } = require('./services/emailService');
+    await transporter.verify()
+    console.log('SMTP verify passed')
+    
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: process.env.ADMIN_EMAIL,
+      subject: 'KKJ Email Test ' + new Date().toISOString(),
+      text: 'If you see this, email is working on Render.'
+    })
+    
+    res.json({ 
+      success: true, 
+      messageId: info.messageId,
+      response: info.response,
+      to: process.env.ADMIN_EMAIL
+    })
+  } catch (err) {
+    res.json({ 
+      success: false, 
+      error: err.message,
+      code: err.code,
+      response: err.response
+    })
+  }
+})
+
+// STANDALONE TEST ROUTE - Google Drive Upload
+app.get('/test-drive-upload', async (req, res) => {
+    const testFilePath = path.join(__dirname, 'test-report.pdf');
+    let browser;
+    try {
+        console.log('[Test] Starting Google Drive upload test...');
+
+        // 1. Generate Sample PDF
+        console.log('[Test] Generating sample PDF...');
+        browser = await puppeteer.launch({
+            headless: 'new',
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
+        const htmlContent = `
+            <div style="font-family: sans-serif; padding: 40px; text-align: center;">
+                <h1 style="color: #c9a84c;">Test Astrology Report</h1>
+                <p><strong>Name:</strong> Test User</p>
+                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                <div style="margin-top: 20px; padding: 20px; border: 1px solid #ddd;">
+                    <p>This is a test PDF to verify Google Drive upload.</p>
+                </div>
+            </div>
+        `;
+        await page.setContent(htmlContent);
+        await page.pdf({ path: testFilePath, format: 'A4' });
+        await browser.close();
+        console.log('[Test] PDF generated at:', testFilePath);
+
+        // 2. Upload to Google Drive
+        console.log('[Test] Uploading to Google Drive...');
+        const driveLink = await uploadToDrive(testFilePath, 'test-report.pdf');
+
+        if (driveLink) {
+            console.log('✅ Drive Upload Successful');
+            console.log(`✅ File Link: ${driveLink}`);
+            
+            // 3. Optional Cleanup
+            if (fs.existsSync(testFilePath)) {
+                fs.unlinkSync(testFilePath);
+                console.log('[Test] Local test file deleted.');
+            }
+
+            return res.json({
+                success: true,
+                message: "Drive Upload Successful",
+                link: driveLink
+            });
+        } else {
+            throw new Error("driveService returned null link");
+        }
+
+    } catch (error) {
+        console.error('❌ Drive Upload Test Failed:', error.message);
+        if (browser) await browser.close();
+        
+        // Cleanup on failure
+        if (fs.existsSync(testFilePath)) {
+            fs.unlinkSync(testFilePath);
+        }
+
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // Global Error Handler
@@ -92,12 +217,11 @@ async function startServer() {
         console.log('✅ Razorpay   — API keys valid');
 
         // 6. Storage
-        const os = require('os');
-        const pdfsDir = path.join(os.tmpdir(), 'kkj-reports');
+        const pdfsDir = path.join(__dirname, 'pdfs');
         if (!fs.existsSync(pdfsDir)) {
             fs.mkdirSync(pdfsDir, { recursive: true });
         }
-        console.log('✅ Storage    — Temp directory ready');
+        console.log('✅ Storage    — PDFs directory ready');
 
         console.log('');
         console.log('\x1b[36m%s\x1b[0m', '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

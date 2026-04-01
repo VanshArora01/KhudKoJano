@@ -67,6 +67,14 @@ IMPORTANT: Keep the descriptions concise to ensure they fit properly on a printe
     "finance": "2 concise sentences: Wealth creation and monetary warnings."
   },
   "specificAnswer": "A profound 5-6 sentence master-level analysis answering their exact question ('${specificQuestion}'). Be specific but do not exceed 6 sentences.",
+  "hinglishKarmicInsights": {
+    "title": "A short, catchy title in Hinglish (e.g., 'Aapka Karmic Safar')",
+    "content": "4-5 deep and relatable sentences in Hinglish (Hindi written in English) about their past life karma and its current impact. Use a mix of common Hindi/Urdu words like 'safal', 'pichle janam', 'sangharsh', 'naseeb', 'kamyabi' but write using English alphabet."
+  },
+  "hinglishDailyTips": {
+    "title": "A short, catchy title in Hinglish (e.g., 'Daily Kamyabi ka Mantra')",
+    "content": "4-5 practical, relatable, and motivating sentences in Hinglish (Hindi written in English) about how to manage their day-to-day energy. Use conversational Hinglish that feels like a friendly mentor's advice."
+  },
   "remedies": [
     { "title": "Sacred Ritual", "description": "A specific mantra, gemstone, or daily habit for spiritual alignment (2 sentences)." },
     { "title": "Practical Action", "description": "Something they should literally DO in the physical world to fix their problem (2 sentences)." },
@@ -114,7 +122,8 @@ IMPORTANT: Keep the descriptions concise to ensure they fit properly on a printe
     const requiredFields = [
       'greeting', 'mulank', 'bhagyank', 'zodiacAnalysis',
       'janamPatrika', 'planetaryPositions', 'yearlyHoroscope',
-      'specificAnswer', 'remedies', 'closingBlessing'
+      'specificAnswer', 'remedies', 'closingBlessing',
+      'hinglishKarmicInsights', 'hinglishDailyTips'
     ];
 
     const missingFields = requiredFields.filter(field => !parsedData[field]);

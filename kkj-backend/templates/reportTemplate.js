@@ -8,13 +8,25 @@ const escapeHtml = (str, fallback = '') => {
 };
 
 const getReportTemplate = (data, orderId, orderDate) => {
-    const {
-        greeting, mulank, bhagyank, zodiacAnalysis, janamPatrika,
-        planetaryPositions, yearlyHoroscope, specificAnswer, remedies, closingBlessing,
-        name, plan, specificQuestion
-    } = data;
+    const safe = {
+        greeting: data.greeting || '',
+        mulank: data.mulank || { number: '', title: '', description: '' },
+        bhagyank: data.bhagyank || { number: '', title: '', description: '' },
+        zodiacAnalysis: data.zodiacAnalysis || { sign: '', element: '', ruling_planet: '', description: '' },
+        janamPatrika: data.janamPatrika || { ascendant: '', moonSign: '', overview: '' },
+        planetaryPositions: data.planetaryPositions || [],
+        yearlyHoroscope: data.yearlyHoroscope || { theme: '', career: '', love: '', health: '', finance: '' },
+        specificAnswer: data.specificAnswer || '',
+        remedies: data.remedies || [],
+        closingBlessing: data.closingBlessing || { sanskrit: '', translation: '' },
+        hinglishKarmicInsights: data.hinglishKarmicInsights || { title: 'Aapka Karmic Safar', content: 'Connecting with your soul...' },
+        hinglishDailyTips: data.hinglishDailyTips || { title: 'Daily Kamyabi ka Mantra', content: 'Stay positive and keep growing.' },
+        name: data.name || 'Seeker',
+        plan: data.plan || 'standard',
+        specificQuestion: data.specificQuestion || ''
+    };
 
-    const planLabel = plan === 'fasttrack' ? '⚡ Fast Track Analysis' : '✦ Standard Analysis';
+    const planLabel = safe.plan === 'fasttrack' ? '⚡ Fast Track Analysis' : '✦ Standard Analysis';
 
     return `
 <!DOCTYPE html>
@@ -22,9 +34,13 @@ const getReportTemplate = (data, orderId, orderDate) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Blueprint - ${escapeHtml(name, 'Seeker')}</title>
+    <title>Cosmic Blueprint - ${escapeHtml(safe.name, 'Seeker')}</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:ital,wght@0,300;0,400;1,300&display=swap');
+        
+        /* Fallback fonts if Google Fonts fails to load */
+        h1, h2, h3, .cinzel { font-family: 'Cinzel', 'Times New Roman', Georgia, serif; }
+        body, p { font-family: 'Lato', Arial, sans-serif; }
 
         :root {
             --bg: #07071a;
@@ -325,7 +341,7 @@ const getReportTemplate = (data, orderId, orderDate) => {
 
         <div class="om-main cinzel">ॐ</div>
         <h1 class="report-title cinzel">Cosmic Blueprint</h1>
-        <div class="user-name cinzel">Dedicated to ${escapeHtml(name, 'Seeker')}</div>
+        <div class="user-name cinzel">Dedicated to ${escapeHtml(safe.name, 'Seeker')}</div>
         
         <div style="margin-top: 40px; opacity: 0.7; font-size: 14px;">
             <p>Report ID: ${escapeHtml(orderId)}</p>
@@ -348,7 +364,7 @@ const getReportTemplate = (data, orderId, orderDate) => {
         </div>
 
         <div class="card" style="font-style: italic; font-weight: 300;">
-            ${escapeHtml(greeting, 'Your cosmic journey begins...')}
+            ${escapeHtml(safe.greeting, 'Your cosmic journey begins...')}
         </div>
 
         <div class="section-header" style="margin-top: 40px;">
@@ -357,16 +373,16 @@ const getReportTemplate = (data, orderId, orderDate) => {
 
         <div class="num-flex">
             <div class="card num-box">
-                <div class="num-val">${escapeHtml(mulank?.number, '0')}</div>
+                <div class="num-val">${escapeHtml(safe.mulank?.number, '0')}</div>
                 <div class="card-header cinzel">Mulank (Psychic Number)</div>
-                <h4 class="text-gold" style="margin-bottom: 10px;">${escapeHtml(mulank?.title, 'Core Essence')}</h4>
-                <p style="font-size: 14px; opacity: 0.9;">${escapeHtml(mulank?.description, 'Discovering your inner truth.')}</p>
+                <h4 class="text-gold" style="margin-bottom: 10px;">${escapeHtml(safe.mulank?.title, 'Core Essence')}</h4>
+                <p style="font-size: 14px; opacity: 0.9;">${escapeHtml(safe.mulank?.description, 'Discovering your inner truth.')}</p>
             </div>
             <div class="card num-box">
-                <div class="num-val">${escapeHtml(bhagyank?.number, '0')}</div>
+                <div class="num-val">${escapeHtml(safe.bhagyank?.number, '0')}</div>
                 <div class="card-header cinzel">Bhagyank (Destiny Number)</div>
-                <h4 class="text-gold" style="margin-bottom: 10px;">${escapeHtml(bhagyank?.title, 'Path of Destiny')}</h4>
-                <p style="font-size: 14px; opacity: 0.9;">${escapeHtml(bhagyank?.description, 'Following the cosmic flow.')}</p>
+                <h4 class="text-gold" style="margin-bottom: 10px;">${escapeHtml(safe.bhagyank?.title, 'Path of Destiny')}</h4>
+                <p style="font-size: 14px; opacity: 0.9;">${escapeHtml(safe.bhagyank?.description, 'Following the cosmic flow.')}</p>
             </div>
         </div>
 
@@ -386,15 +402,15 @@ const getReportTemplate = (data, orderId, orderDate) => {
 
         <div class="card">
             <div class="zod-header">
-                <div class="zod-sign-icon zod-icon zod-${escapeHtml(zodiacAnalysis?.sign, 'Star Sign')}"></div>
+                <div class="zod-sign-icon zod-icon zod-${escapeHtml(safe.zodiacAnalysis?.sign, 'Star Sign')}"></div>
                 <div>
-                    <h3 class="cinzel text-gold" style="font-size: 32px;">${escapeHtml(zodiacAnalysis?.sign, 'Star Sign')}</h3>
+                    <h3 class="cinzel text-gold" style="font-size: 32px;">${escapeHtml(safe.zodiacAnalysis?.sign, 'Star Sign')}</h3>
                     <p style="opacity: 0.7; letter-spacing: 2px; text-transform: uppercase;">
-                        ${escapeHtml(zodiacAnalysis?.element, 'Element')} Element &nbsp;•&nbsp; Ruled by ${escapeHtml(zodiacAnalysis?.ruling_planet, 'Ruling Planet')}
+                        ${escapeHtml(safe.zodiacAnalysis?.element, 'Element')} Element &nbsp;•&nbsp; Ruled by ${escapeHtml(safe.zodiacAnalysis?.ruling_planet, 'Ruling Planet')}
                     </p>
                 </div>
             </div>
-            <p style="line-height: 1.8;">${escapeHtml(zodiacAnalysis?.description, 'The stars align to form your cosmic identity.')}</p>
+            <p style="line-height: 1.8;">${escapeHtml(safe.zodiacAnalysis?.description, 'The stars align to form your cosmic identity.')}</p>
         </div>
 
         <div class="section-header" style="margin-top: 40px;">
@@ -404,20 +420,20 @@ const getReportTemplate = (data, orderId, orderDate) => {
         <div class="horo-grid">
             <div class="card">
                 <div class="card-header cinzel">Ascendant (Lagna)</div>
-                <p class="text-gold cinzel" style="font-size: 20px;">${escapeHtml(janamPatrika?.ascendant, 'Ascendant')}</p>
+                <p class="text-gold cinzel" style="font-size: 20px;">${escapeHtml(safe.janamPatrika?.ascendant, 'Ascendant')}</p>
             </div>
             <div class="card">
                 <div class="card-header cinzel">Moon Sign (Rashi)</div>
-                <p class="text-gold cinzel" style="font-size: 20px;">${escapeHtml(janamPatrika?.moonSign, 'Moon Sign')}</p>
+                <p class="text-gold cinzel" style="font-size: 20px;">${escapeHtml(safe.janamPatrika?.moonSign, 'Moon Sign')}</p>
             </div>
         </div>
 
         <div class="card">
             <div class="card-header cinzel">Spiritual Portrait</div>
-            <p style="line-height: 1.8;">${escapeHtml(janamPatrika?.overview, 'An overview of your inner landscape.')}</p>
+            <p style="line-height: 1.8;">${escapeHtml(safe.janamPatrika?.overview, 'An overview of your inner landscape.')}</p>
         </div>
 
-        <div class="page-footer cinzel">Prepared exclusively for ${escapeHtml(name, 'Seeker')}</div>
+        <div class="page-footer cinzel">Prepared exclusively for ${escapeHtml(safe.name, 'Seeker')}</div>
     </div>
 
     <!-- PAGE 4: PLANETARY ALIGNMENTS -->
@@ -441,7 +457,7 @@ const getReportTemplate = (data, orderId, orderDate) => {
                     </tr>
                 </thead>
                 <tbody>
-                    ${planetaryPositions.map(p => `
+                    ${(safe.planetaryPositions || []).map(p => `
                         <tr>
                             <td class="cinzel text-gold">${escapeHtml(p.planet)}</td>
                             <td style="opacity: 0.8;">${escapeHtml(p.position)}</td>
@@ -472,25 +488,25 @@ const getReportTemplate = (data, orderId, orderDate) => {
 
         <div class="card text-center" style="background: rgba(201, 168, 76, 0.15); border: 2px solid var(--gold);">
             <div class="card-header cinzel" style="border: 0;">Your Year Theme</div>
-            <h3 style="font-style: italic; color: var(--silver);">${escapeHtml(yearlyHoroscope?.theme, 'A year of transformation.')}</h3>
+            <h3 style="font-style: italic; color: var(--silver);">${escapeHtml(safe.yearlyHoroscope?.theme, 'A year of transformation.')}</h3>
         </div>
 
         <div class="horo-grid">
             <div class="card">
                 <div class="card-header cinzel">Career & Ambition</div>
-                <p style="font-size: 13px;">${escapeHtml(yearlyHoroscope?.career, 'Focus on steady growth.')}</p>
+                <p style="font-size: 13px;">${escapeHtml(safe.yearlyHoroscope?.career, 'Focus on steady growth.')}</p>
             </div>
             <div class="card">
                 <div class="card-header cinzel">Love & Relations</div>
-                <p style="font-size: 13px;">${escapeHtml(yearlyHoroscope?.love, 'Open your heart to new connections.')}</p>
+                <p style="font-size: 13px;">${escapeHtml(safe.yearlyHoroscope?.love, 'Open your heart to new connections.')}</p>
             </div>
             <div class="card">
                 <div class="card-header cinzel">Financial Growth</div>
-                <p style="font-size: 13px;">${escapeHtml(yearlyHoroscope?.finance, 'Prudence brings abundance.')}</p>
+                <p style="font-size: 13px;">${escapeHtml(safe.yearlyHoroscope?.finance, 'Prudence brings abundance.')}</p>
             </div>
             <div class="card">
                 <div class="card-header cinzel">Vitality & Health</div>
-                <p style="font-size: 13px;">${escapeHtml(yearlyHoroscope?.health, 'Prioritize your well-being.')}</p>
+                <p style="font-size: 13px;">${escapeHtml(safe.yearlyHoroscope?.health, 'Prioritize your well-being.')}</p>
             </div>
         </div>
 
@@ -510,14 +526,14 @@ const getReportTemplate = (data, orderId, orderDate) => {
 
         <div class="card" style="text-align: center; border-style: dashed;">
             <p style="opacity: 0.6; font-size: 12px; text-transform: uppercase;">Your Inquiry:</p>
-            <h4 style="margin-top: 10px; font-style: italic; font-weight: 400;">"${escapeHtml(specificQuestion, 'Your question')}"</h4>
+            <h4 style="margin-top: 10px; font-style: italic; font-weight: 400;">"${escapeHtml(safe.specificQuestion, 'Your question')}"</h4>
         </div>
 
         <div class="answer-box cinzel">
-            ${escapeHtml(specificAnswer, 'The universe is guiding you.')}
+            ${escapeHtml(safe.specificAnswer, 'The universe is guiding you.')}
         </div>
 
-        <div class="page-footer cinzel">Soul Guidance for ${escapeHtml(name, 'Seeker')}</div>
+        <div class="page-footer cinzel">Soul Guidance for ${escapeHtml(safe.name, 'Seeker')}</div>
     </div>
 
     <!-- PAGE 7: SACRED REMEDIES -->
@@ -531,7 +547,7 @@ const getReportTemplate = (data, orderId, orderDate) => {
             <h2 class="cinzel">Sacred Remedies</h2>
         </div>
 
-        ${remedies.map(r => `
+        ${(safe.remedies || []).map(r => `
             <div class="card">
                 <div class="card-header cinzel">${escapeHtml(r.title)}</div>
                 <p style="line-height: 1.6; font-size: 15px;">${escapeHtml(r.description)}</p>
@@ -546,7 +562,56 @@ const getReportTemplate = (data, orderId, orderDate) => {
         <div class="page-footer cinzel">OM KHUD KO JAANO</div>
     </div>
 
-    <!-- PAGE 8: CLOSING BLESSING -->
+    <!-- PAGE 8: KARMIC INSIGHTS (HINGLISH) -->
+    <div class="page">
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+
+        <div class="section-header">
+            <h2 class="cinzel">${escapeHtml(safe.hinglishKarmicInsights?.title, 'Karmic Insights')}</h2>
+        </div>
+
+        <div class="card" style="margin-top: 40px; padding: 40px; border-style: double; border-width: 3px;">
+            <p style="font-size: 20px; line-height: 1.8; text-align: center; font-style: italic; color: var(--gold-light);">
+                "${escapeHtml(safe.hinglishKarmicInsights?.content)}"
+            </p>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center; opacity: 0.6;">
+            <p>Karma hi sabkuch hai. Apne aaj ko sudhariye, kal apne aap behtar hoga.</p>
+        </div>
+
+        <div class="page-footer cinzel">Karmic Journey of ${escapeHtml(safe.name, 'Seeker')}</div>
+    </div>
+
+    <!-- PAGE 9: DAILY GUIDANCE (HINGLISH) -->
+    <div class="page">
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+
+        <div class="section-header">
+            <h2 class="cinzel">${escapeHtml(safe.hinglishDailyTips?.title, 'Daily Mantra')}</h2>
+        </div>
+
+        <div class="card" style="background: rgba(201, 168, 76, 0.12); border: 2px solid var(--gold); padding: 50px;">
+            <p style="font-size: 19px; line-height: 1.9; color: var(--silver); text-align: center;">
+                ${escapeHtml(safe.hinglishDailyTips?.content)}
+            </p>
+        </div>
+
+        <div style="margin-top: 60px; text-align: center;">
+            <div style="font-size: 32px; color: var(--gold); margin-bottom: 20px;">✦</div>
+            <p style="font-weight: 300; letter-spacing: 1px;">Har din ek nayi shuruat hai. Vishwas rakhiye.</p>
+        </div>
+
+        <div class="page-footer cinzel">OM KHUD KO JAANO</div>
+    </div>
+
+    <!-- PAGE 10: CLOSING BLESSING -->
     <div class="page cover">
         <div class="corner top-left"></div>
         <div class="corner top-right"></div>
@@ -557,11 +622,11 @@ const getReportTemplate = (data, orderId, orderDate) => {
         
         <div style="max-width: 80%; margin: 0 auto;">
             <p style="font-size: 28px; color: var(--gold); line-height: 1.5; margin-bottom: 30px; font-style: italic;">
-                ${escapeHtml(closingBlessing?.sanskrit, 'Om Shanti Shanti Shanti')}
+                ${escapeHtml(safe.closingBlessing?.sanskrit, 'Om Shanti Shanti Shanti')}
             </p>
             <div style="width: 100px; height: 1px; background: var(--gold); margin: 30px auto;"></div>
             <p style="font-size: 18px; opacity: 0.8; font-style: italic;">
-                "${escapeHtml(closingBlessing?.translation, 'May peace be with you always.')}"
+                "${escapeHtml(safe.closingBlessing?.translation, 'May peace be with you always.')}"
             </p>
         </div>
 
@@ -570,7 +635,7 @@ const getReportTemplate = (data, orderId, orderDate) => {
             <h2 class="cinzel" style="color: var(--gold); margin-top: 10px;">Khud Ko Jaano</h2>
         </div>
 
-        <div class="page-footer cinzel">End of Cosmic Blueprint — ${escapeHtml(name, 'Seeker')}</div>
+        <div class="page-footer cinzel">End of Cosmic Blueprint — ${escapeHtml(safe.name, 'Seeker')}</div>
     </div>
 </body>
 </html>
