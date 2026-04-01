@@ -38,15 +38,16 @@ The response MUST be a JSON object with this exact structure:
   "zodiacAnalysis": { "sign": "", "element": "", "ruling_planet": "", "description": "", "hinglishInsight": "" },
   "janamPatrika": { "ascendant": "", "moonSign": "", "overview": "", "hinglishInsight": "" },
   "planetaryPositions": [
-    { "planet": "Sun", "position": "", "effect": "" },
-    ... etc ...
+    { "planet": "Sun", "position": "Aries", "effect": "Confidence boosted." },
+    { "planet": "Moon", "position": "Taurus", "effect": "Emotional stability." }
   ],
   "planetaryHinglishInsight": "A general Hinglish summary of their planets.",
   "yearlyHoroscope": { "theme": "", "career": "", "love": "", "health": "", "finance": "", "hinglishInsight": "" },
   "specificAnswer": "A profound 5-6 sentence answer in Hinglish flavor.",
   "remedies": [
-    { "title": "", "description": "" },
-    ... 3 total ...
+    { "title": "First", "description": "" },
+    { "title": "Second", "description": "" },
+    { "title": "Third", "description": "" }
   ],
   "remedyHinglishInsight": "A closing Hinglish mantra of advice.",
   "hinglishKarmicInsights": { "title": "", "content": "" },

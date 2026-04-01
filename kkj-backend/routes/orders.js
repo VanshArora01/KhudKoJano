@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const { customAlphabet } = require('nanoid');
 const Order = require('../models/Order');
 const { generateAstrologyReport } = require('../services/groqService');
@@ -9,7 +11,7 @@ const { createRazorpayOrder, verifyPaymentSignature } = require('../services/raz
 
 const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
 
-const BYPASS_PAYMENT = false; // Set to false for real payments
+const BYPASS_PAYMENT = true; // Set to true for rapid deployment testing
 
 // POST /api/orders/create
 router.post('/create', async (req, res) => {
@@ -215,6 +217,49 @@ async function runPipeline(orderId) {
         }
     }
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🧪 DIRECT TEST ROUTE (For Rapid Deployment Testing)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+router.post('/submit-form', async (req, res) => {
+    try {
+        console.log("-----------------------------------------");
+        console.log("📥 DIRECT SUBMISSION START:", req.body.email);
+        
+        let order;
+        if (req.body.orderId) {
+            order = await Order.findOne({ orderId: req.body.orderId });
+        }
+
+        if (!order) {
+           const { name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion, plan } = req.body;
+           const orderId = req.body.orderId || `KKJ-TEST-${Math.random().toString(36).substring(7).toUpperCase()}`;
+           
+           order = new Order({
+               orderId,
+               name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion,
+               plan: plan || 'standard',
+               status: 'received',
+               payment: { status: 'paid', amount: 0, razorpayOrderId: 'BYPASS_ADMIN' }
+           });
+           await order.save();
+        }
+
+        console.log(`[${order.orderId}] Direct submission accepted — triggering pipeline`);
+        
+        // Response immediately
+        res.status(200).json({ success: true, orderId: order.orderId, message: "Pipeline started" });
+
+        // Trigger in background
+        runPipeline(order.orderId);
+
+    } catch (error) {
+        console.error('Submit Route Error:', error.message);
+        if (!res.headersSent) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+});
 
 // POST /api/orders/verify-payment
 router.post('/verify-payment', async (req, res) => {
