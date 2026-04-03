@@ -13,3 +13,5 @@ reports/
 /Frontend/dist/
 /kkj-backend/node_modules/
 /kkj-backend/pdfs/
+/kkj-backend/temp/
+/kkj-backend/service-account.json

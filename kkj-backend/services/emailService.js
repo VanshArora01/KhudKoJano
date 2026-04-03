@@ -5,13 +5,13 @@ require('dotenv').config();
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
   port: parseInt(process.env.EMAIL_PORT) || 587,
-  secure: false,          // MUST be false for port 587
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   },
   tls: {
-    rejectUnauthorized: false  // prevents TLS errors on Render/Railway
+    rejectUnauthorized: false
   }
 });
 
@@ -51,58 +51,16 @@ const sendUserConfirmationEmail = async (order) => {
   const { name, email, plan, specificQuestion, orderId } = order;
   const firstName = name.split(' ')[0];
 
-  console.log(`[Email] Preparing confirmation for: ${email}`);
-
   const htmlBody = `
-    <div style="background-color: #07071a; color: #e8e8f0; font-family: 'Lato', Arial, sans-serif; padding: 40px; margin: 0; min-height: 100vh;">
-      <div style="max-width: 600px; margin: 0 auto; border: 1px solid #c9a84c; background-color: #0c0c2a;">
-        <!-- Gold Header Bar -->
-        <div style="background-color: #c9a84c; color: #07071a; padding: 15px; text-align: center; font-family: 'Cinzel', serif; font-weight: bold; letter-spacing: 2px;">
-          ॐ KHUD KO JAANO
-        </div>
-
-        <div style="padding: 40px;">
-          <p style="font-size: 18px; margin-bottom: 25px;">Dear ${firstName},</p>
-
-          <p style="line-height: 1.6; margin-bottom: 20px;">
-            We have received your birth details and our astrologers
-            have begun the sacred process of reading your cosmic chart.
-          </p>
-
-          <p style="margin-bottom: 10px; font-weight: bold; color: #c9a84c;">Your question to the stars:</p>
-          <div style="border-left: 3px solid #c9a84c; padding-left: 15px; font-style: italic; color: #f0d080; margin-bottom: 25px; line-height: 1.6;">
-            "${specificQuestion}"
-          </div>
-
-          <p style="line-height: 1.6; margin-bottom: 20px;">
-            We are carefully analysing the position of the planets
-            at the exact moment of your birth. Your personalised
-            Cosmic Blueprint is being prepared with full attention
-            and devotion.
-          </p>
-
-          <p style="line-height: 1.6; margin-bottom: 25px;">
-            You will receive your complete report <strong>${plan === 'fasttrack' ? 'within 2 hours' : 'within 24 hours'}</strong>.
-          </p>
-
-          <div style="background: rgba(201, 168, 76, 0.1); border: 1px solid rgba(201, 168, 76, 0.3); padding: 15px; text-align: center; border-radius: 4px; margin-bottom: 30px;">
-            <p style="margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #c9a84c;">Your Order ID</p>
-            <p style="margin: 5px 0 0; font-size: 20px; font-weight: bold; font-family: 'Cinzel', serif; color: #c9a84c;">${orderId}</p>
-          </div>
-
-          <p style="line-height: 1.6; margin-bottom: 30px;">
-            Please keep an eye on this inbox — your blueprint
-            will be delivered here once it is ready.
-          </p>
-
-          <p style="margin-bottom: 5px;">With cosmic blessings,</p>
-          <p style="font-weight: bold; color: #c9a84c;">The Khud Ko Jaano Team</p>
-        </div>
-
-        <!-- Footer -->
-        <div style="padding: 20px; text-align: center; font-size: 11px; color: #888; border-top: 1px solid rgba(201, 168, 76, 0.1);">
-          ॐ Khud Ko Jaano  •  khudkojano@gmail.com
-        </div>
+    <div style="background-color: #07071a; color: #e8e8f0; font-family: sans-serif; padding: 40px;">
+      <div style="max-width: 600px; margin: 0 auto; border: 1px solid #c9a84c; background-color: #0c0c2a; padding: 30px;">
+        <h2 style="color: #c9a84c; text-align: center;">ॐ KHUD KO JAANO</h2>
+        <p>Dear ${firstName},</p>
+        <p>We have received your birth details and our astrologers have started reading your chart.</p>
+        <p><strong>Your Question:</strong> "${specificQuestion}"</p>
+        <p>You will receive your complete report <strong>${plan === 'fasttrack' ? 'within 2 hours' : 'within 24 hours'}</strong>.</p>
+        <p style="text-align: center; color: #c9a84c;">Order ID: ${orderId}</p>
+        <p>With cosmic blessings,<br>The Khud Ko Jaano Team</p>
       </div>
     </div>
   `;
@@ -115,43 +73,25 @@ const sendUserConfirmationEmail = async (order) => {
   };
 
   const info = await transporter.sendMail(mailOptions);
-  console.log('Confirmation messageId:', info.messageId);
-  console.log('Confirmation response:', info.response);
   return info;
 };
 
 /**
- * 2. Admin Report Email
+ * 2. Admin Report Email (RESTORING ATTACHMENT)
  */
 const sendAdminReportEmail = async (order) => {
   const { orderId, name, email, phone, plan, createdAt, specificQuestion } = order;
   const pdfPath = order.report?.pdfPath;
 
-  console.log("------------------------------------------");
-  console.log("📄 ADMIN EMAIL ATTEMPT FOR:", orderId);
-  console.log("📄 PDF PATH:", pdfPath);
-
-  // 4️⃣ VERIFY FILE EXISTS BEFORE EMAIL
-  if (!pdfPath || !fs.existsSync(pdfPath)) {
-    console.error("❌ PDF NOT FOUND/NOT GENERATED:", pdfPath);
-    // Don't returned, still send text but mark failure
-  } else {
-    console.log("📦 FILE EXISTS:", true);
-    console.log("📏 FILE SIZE:", fs.statSync(pdfPath).size, "bytes");
-  }
-
-  const attachments = [];
-  if (pdfPath && fs.existsSync(pdfPath)) {
-    // 5️⃣ USE CORRECT ATTACHMENT FORMAT
-    attachments.push({
-      filename: `KhudKoJaano-${orderId}-CosmicBlueprint.pdf`,
-      path: pdfPath,
-      contentType: 'application/pdf'
-    });
+  const pdfExists = pdfPath && fs.existsSync(pdfPath);
+  
+  if (!pdfExists) {
+    console.error("❌ PDF NOT FOUND FOR ADMIN EMAIL:", pdfPath);
+    // Don't throw, let it send a notification without file
   }
 
   const textBody = `
-New Cosmic Blueprint is ready to send.
+New Cosmic Blueprint is ready for delivery.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
 ORDER DETAILS
@@ -163,42 +103,44 @@ Phone:      [${phone}]
 Plan:       [${plan}] 
 Submitted:  [${createdAt}]
 
-Their Question:
+Question:
 "${specificQuestion}"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
-ACTION REQUIRED
+REQUIRED ACTION
 ━━━━━━━━━━━━━━━━━━━━━━━━
 The PDF report is attached to this email.
-${pdfExists ? '' : '⚠️ PDF generation failed — check server logs'}
 
 Please:
-1. Download the attached PDF
-2. Email it personally to: ${email}
-3. Use a warm human tone — do NOT forward 
-   this email directly
-4. Mark the order as sent in the admin panel
-
-Reminder: The user is expecting their report 
-within ${plan === 'fasttrack' ? '2 hours' : '24 hours'}. Please send promptly.
+1. Open the attached PDF to verify
+2. Send it personally to: ${email}
+3. Mark the order as 'SENT' in the admin panel
 `;
+
+  const attachments = [];
+  if (pdfExists) {
+    attachments.push({
+      filename: `KhudKoJaano-${orderId}.pdf`,
+      path: pdfPath,
+      contentType: 'application/pdf'
+    });
+  }
 
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to: process.env.ADMIN_EMAIL,
-    subject: `[KKJ] New Report Ready — ${orderId} | ${plan} | ${name}`,
+    subject: `[KKJ] New Report Ready — ${orderId} | ${name}`,
     text: textBody,
-    attachments
+    attachments: attachments
   };
 
   const info = await transporter.sendMail(mailOptions);
-  console.log('Admin messageId:', info.messageId);
-  console.log('Admin response:', info.response);
+  console.log('✅ Admin Notification Sent (with attachment):', info.messageId);
   return info;
 };
 
 module.exports = {
-  transporter, // Exporting for debug route
+  transporter,
   verifyEmailConnection,
   sendStartupTest,
   sendUserConfirmationEmail,

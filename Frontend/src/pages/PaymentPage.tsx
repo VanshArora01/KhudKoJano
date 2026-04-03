@@ -67,6 +67,7 @@ const PaymentPage = () => {
                 }
 
                 sessionStorage.setItem('orderId', order.orderId);
+                sessionStorage.setItem('paymentSuccess', 'true');
                 setLoading(false);
                 navigate('/confirmation');
                 return;
@@ -105,6 +106,7 @@ const PaymentPage = () => {
 
                         if (verification.success) {
                             sessionStorage.setItem('orderId', verification.orderId);
+                            sessionStorage.setItem('paymentSuccess', 'true');
                             setLoading(false);
                             navigate('/confirmation');
                         }

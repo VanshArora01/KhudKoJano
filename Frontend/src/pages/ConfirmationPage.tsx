@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import CosmicBackground from '../components/CosmicBackground';
 
 const ConfirmationPage = () => {
+    const navigate = useNavigate();
     const [details, setDetails] = useState({
         id: 'KKJ-XXXXXX',
         plan: 'The Seeker',
@@ -11,6 +12,15 @@ const ConfirmationPage = () => {
     });
 
     useEffect(() => {
+        const isSuccess = sessionStorage.getItem('paymentSuccess') === 'true';
+        if (!isSuccess) {
+            navigate('/');
+            return;
+        }
+
+        // Clear the success flag so they can't re-enter via direct link later
+        // sessionStorage.removeItem('paymentSuccess');
+
         const orderId = sessionStorage.getItem('orderId') || 'KKJ-8271AS';
         const planStored = sessionStorage.getItem('selectedPlan');
         const userStored = sessionStorage.getItem('userDetails');

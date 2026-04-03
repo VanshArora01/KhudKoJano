@@ -8,17 +8,21 @@ const { generateAstrologyReport } = require('../services/groqService');
 const { generatePDF } = require('../services/pdfService');
 const { sendUserConfirmationEmail, sendAdminReportEmail } = require('../services/emailService');
 const { createRazorpayOrder, verifyPaymentSignature } = require('../services/razorpayService');
+const { uploadPDF } = require('../services/cloudinaryService');
 
 const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
 
-const BYPASS_PAYMENT = true; // Set to true for rapid deployment testing
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PRODUCTION CONFIGURATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const BYPASS_PAYMENT = false; // 🛑 DISABLED FOR PRODUCTION
 
 // POST /api/orders/create
 router.post('/create', async (req, res) => {
     try {
         const { name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion, plan } = req.body;
 
-        // Validation
+        // 1. Validation
         const errors = [];
         if (!name) errors.push('name');
         if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push('email');
@@ -27,294 +31,187 @@ router.post('/create', async (req, res) => {
         if (!timeOfBirth) errors.push('timeOfBirth');
         if (!placeOfBirth) errors.push('placeOfBirth');
         if (!specificQuestion) errors.push('specificQuestion');
-        if (plan && !['standard', 'fasttrack'].includes(plan)) errors.push('plan');
 
         if (errors.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: `Missing or invalid fields: ${errors.join(', ')}`
-            });
+            return res.status(400).json({ success: false, message: `Invalid fields: ${errors.join(', ')}` });
         }
 
         const orderId = `KKJ-${nanoid()}`;
-        const amount = plan === 'fasttrack' ? 19900 : 9900;
+        const amount = plan === 'fasttrack' ? 19900 : 9900; // in paisa
 
-        if (BYPASS_PAYMENT) {
-            console.log("⚠️ Payment bypassed for testing");
-            
+        // ⚠️ ONLY ALLOWED IF EXPLICITLY ENABLED
+        if (BYPASS_PAYMENT && process.env.NODE_ENV !== 'production') {
             const newOrder = new Order({
-                orderId,
-                name,
-                email,
-                phone,
-                dateOfBirth,
-                timeOfBirth,
-                placeOfBirth,
-                currentLocation,
-                specificQuestion,
-                plan: plan || 'standard',
-                status: 'received',
-                payment: {
-                    status: 'paid',
-                    amount: amount,
-                    razorpayOrderId: 'BYPASS_TEST'
-                }
+                orderId, name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion,
+                plan: plan || 'standard', status: 'received',
+                payment: { status: 'paid', amount, razorpayOrderId: 'BYPASS_TEST' }
             });
-
             await newOrder.save();
-            console.log(`[${orderId}] ✅ Order created with BYPASS mode — starting pipeline`);
-
-            // Trigger pipeline immediately
+            res.status(201).json({ success: true, orderId, bypass: true });
             runPipeline(orderId);
-
-            return res.status(201).json({
-                success: true,
-                orderId,
-                message: "Payment bypassed, processing started",
-                bypass: true
-            });
-        }
-
-        const razorpayOrder = await createRazorpayOrder(orderId, plan);
-
-        const newOrder = new Order({
-            orderId,
-            name,
-            email,
-            phone,
-            dateOfBirth,
-            timeOfBirth,
-            placeOfBirth,
-            currentLocation,
-            specificQuestion,
-            plan: plan || 'standard',
-            status: 'awaiting_payment',
-            payment: {
-                razorpayOrderId: razorpayOrder.id,
-                status: 'pending',
-                amount: amount
-            }
-        });
-
-        await newOrder.save();
-        console.log(`[${orderId}] 📥 Order created — awaiting payment (₹${amount / 100} ${plan || 'standard'})`);
-
-        res.status(201).json({
-            success: true,
-            orderId,
-            razorpayOrderId: razorpayOrder.id,
-            amount,
-            currency: 'INR',
-            keyId: process.env.RAZORPAY_KEY_ID
-        });
-
-    } catch (error) {
-        console.error('Create Route Error:', error);
-        if (!res.headersSent) {
-            res.status(500).json({ success: false, message: 'Internal server error' });
-        }
-    }
-});
-
-async function runPipeline(orderId) {
-    let order;
-    try {
-        order = await Order.findOne({ orderId });
-        if (!order) {
-            console.error(`[${orderId}] ❌ Order not found in database`);
             return;
         }
 
-        console.log(`[${order.orderId}] 🚀 Pipeline started`);
+        // 2. Real Razorpay Order Creation
+        const rzp = await createRazorpayOrder(orderId, plan);
+        const order = new Order({
+            orderId, name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion,
+            plan: plan || 'standard', status: 'awaiting_payment',
+            payment: { razorpayOrderId: rzp.id, status: 'pending', amount }
+        });
+        await order.save();
 
-        // Step 1 — Confirmation email (send first, before AI)
+        res.status(201).json({ 
+            success: true, orderId, razorpayOrderId: rzp.id, amount, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID 
+        });
+
+    } catch (error) {
+        console.error('Create Order Error:', error);
+        if (!res.headersSent) res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+});
+
+/**
+ * Main Order Pipeline (Only triggers after payment)
+ */
+async function runPipeline(orderId) {
+    let order;
+    let pdfPath;
+    let emailSuccess = false;
+    let cloudinarySuccess = false;
+
+    try {
+        order = await Order.findOne({ orderId });
+        if (!order) return console.error(`[${orderId}] Order not found`);
+        if (order.status === 'ready' || order.status === 'error') return;
+
+        console.log(`[${orderId}] ⚙️ Starting pipeline for payment-verified order`);
+
+        // 1. User Confirmation
         try {
-            if (order.confirmationEmailSent) {
-                console.log(`[${order.orderId}] 📧 Confirmation email already sent, skipping...`);
-            } else {
-                console.log(`[${order.orderId}] 📧 Sending confirmation to: ${order.email}`);
-                await sendUserConfirmationEmail(order, order.orderId);
-                order.confirmationEmailSent = true;
-                await order.save();
-                console.log(`[${order.orderId}] ✅ Confirmation email sent`);
-            }
-        } catch (err) {
-            console.error(`[${order.orderId}] ❌ Confirmation email FAILED:`, err.message);
-            console.error(err.stack);
-            // do NOT return — continue to next step
-        }
+            await sendUserConfirmationEmail(order);
+            order.confirmationEmailSent = true;
+            await order.save();
+        } catch (e) { console.error(`[${orderId}] Confirmation email error:`, e.message); }
 
-        // Step 2 — Groq AI
+        // 2. AI Content Generation
         let reportData;
         try {
             order.status = 'generating';
             await order.save();
-            console.log(`[${order.orderId}] 🤖 Calling Groq...`);
             reportData = await generateAstrologyReport(order);
             order.report.rawContent = JSON.stringify(reportData);
             await order.save();
-            console.log(`[${order.orderId}] ✅ Groq report generated`);
-        } catch (err) {
-            console.error(`[${order.orderId}] ❌ Groq FAILED:`, err.message);
-            console.error(err.stack);
+        } catch (e) {
+            console.error(`[${orderId}] AI failure:`, e.message);
             order.status = 'error';
-            order.adminNotes = (order.adminNotes || '') + ' Groq failed: ' + err.message;
-            await order.save();
-            return; // can't generate PDF without report
-        }
-
-        // Step 3 — PDF
-        let pdfPath;
-        try {
-            console.log(`[${order.orderId}] 📄 Generating PDF...`);
-            // 3️⃣ WAIT FOR PDF GENERATION (VERY IMPORTANT)
-            pdfPath = await generatePDF({
-                ...reportData,
-                name: order.name,
-                plan: order.plan,
-                specificQuestion: order.specificQuestion
-            }, order.orderId);
-            
-            // 7️⃣ OPTIONAL: DELAY (IF RACE CONDITION)
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // 4️⃣ VERIFY FILE EXISTS BEFORE EMAIL
-            if (!fs.existsSync(pdfPath)) {
-                console.error(`❌ [${order.orderId}] PDF NOT FOUND after generation:`, pdfPath);
-                throw new Error("PDF file not found on disk after generation trace.");
-            }
-
-            order.report.pdfPath = pdfPath;
-            order.report.generatedAt = new Date();
-            order.status = 'ready';
-            await order.save();
-            console.log(`[${order.orderId}] ✅ PDF verified at: ${pdfPath}`);
-        } catch (err) {
-            console.error(`[${order.orderId}] ❌ PDF FAILED:`, err.message);
-            order.status = 'error';
-            order.adminNotes = (order.adminNotes || '') + ' PDF failed: ' + err.message;
             await order.save();
             return;
         }
 
-        // Step 4 — Admin email
+        // 3. PDF Generation
         try {
-            console.log(`[${order.orderId}] 📧 Sending admin alert to: ${process.env.ADMIN_EMAIL}`);
-            // Ensure we use the latest order data
-            await sendAdminReportEmail(order);
-            console.log(`[${order.orderId}] ✅ Admin email sent`);
-            console.log(`[${order.orderId}] 🎉 Pipeline complete`);
-        } catch (err) {
-            console.error(`[${order.orderId}] ❌ Admin email FAILED:`, err.message);
-            console.error(err.stack);
-        }
-    } catch (pipelineError) {
-        console.error(`[${orderId}] ❌ CRITICAL Pipeline Error:`, pipelineError.message);
-        if (order) {
-            order.status = 'error';
-            order.adminNotes = (order.adminNotes || '') + `\nCritical Error: ${pipelineError.message}`;
+            pdfPath = await generatePDF({
+                ...reportData, 
+                name: order.name, plan: order.plan, specificQuestion: order.specificQuestion
+            }, orderId);
+            
+            if (!pdfPath || !fs.existsSync(pdfPath)) throw new Error("File generation trace lost");
+            
+            order.report.pdfPath = pdfPath;
+            order.report.generatedAt = new Date();
             await order.save();
+        } catch (e) {
+            console.error(`[${orderId}] PDF creation failure:`, e.message);
+            order.status = 'error';
+            await order.save();
+            return;
+        }
+
+        // 4. Cloudinary Storage (Backup)
+        try {
+            const url = await uploadPDF(pdfPath, `backups/${orderId}`);
+            if (url) {
+                order.report.cloudinaryUrl = url;
+                cloudinarySuccess = true;
+                await order.save();
+            }
+        } catch (e) { console.error(`[${orderId}] Cloudinary failure:`, e.message); }
+
+        // 5. Admin Notification (Main Channel - Attachment)
+        try {
+            await sendAdminReportEmail(order);
+            emailSuccess = true;
+            console.log(`[${orderId}] ✅ Admin notified with attachment`);
+        } catch (e) { console.error(`[${orderId}] Admin email failure:`, e.message); }
+
+        order.status = 'ready';
+        await order.save();
+        console.log(`[${orderId}] 🎉 Full processing complete`);
+
+    } catch (err) {
+        console.error(`[${orderId}] ❌ Critical Pipeline Failure:`, err.message);
+    } finally {
+        // Safe Cleanup: Only if both the admin have it and the cloud has it
+        if (emailSuccess && cloudinarySuccess && pdfPath && fs.existsSync(pdfPath)) {
+            try {
+                fs.unlinkSync(pdfPath);
+                console.log(`[${orderId}] 🗑️ Temporary local file cleaned up`);
+            } catch (e) {}
         }
     }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 🧪 DIRECT TEST ROUTE (For Rapid Deployment Testing)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-router.post('/submit-form', async (req, res) => {
-    try {
-        console.log("-----------------------------------------");
-        console.log("📥 DIRECT SUBMISSION START:", req.body.email);
-        
-        let order;
-        if (req.body.orderId) {
-            order = await Order.findOne({ orderId: req.body.orderId });
-        }
-
-        if (!order) {
-           const { name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion, plan } = req.body;
-           const orderId = req.body.orderId || `KKJ-TEST-${Math.random().toString(36).substring(7).toUpperCase()}`;
-           
-           order = new Order({
-               orderId,
-               name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion,
-               plan: plan || 'standard',
-               status: 'received',
-               payment: { status: 'paid', amount: 0, razorpayOrderId: 'BYPASS_ADMIN' }
-           });
-           await order.save();
-        }
-
-        console.log(`[${order.orderId}] Direct submission accepted — triggering pipeline`);
-        
-        // Response immediately
-        res.status(200).json({ success: true, orderId: order.orderId, message: "Pipeline started" });
-
-        // Trigger in background
-        runPipeline(order.orderId);
-
-    } catch (error) {
-        console.error('Submit Route Error:', error.message);
-        if (!res.headersSent) {
-            res.status(500).json({ success: false, error: error.message });
-        }
-    }
-});
-
-// POST /api/orders/verify-payment
+/**
+ * Secure Payment Verification Channel
+ */
 router.post('/verify-payment', async (req, res) => {
     try {
         const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
-
         const order = await Order.findOne({ orderId });
-        if (!order) {
-            return res.status(404).json({ success: false, message: 'Order not found' });
-        }
+        
+        if (!order) return res.status(404).json({ success: false, message: 'Order missing' });
 
+        // IMPORTANT security: only verify pending orders
         if (order.payment.status === 'paid') {
-            return res.status(400).json({ success: false, message: 'Payment already verified for this order' });
+            return res.status(400).json({ success: false, message: 'Payment already processed' });
         }
 
         const isValid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
-
         if (!isValid) {
             order.payment.status = 'failed';
             await order.save();
-            console.error(`[${orderId}] ❌ Payment signature invalid — possible tamper attempt`);
-            return res.status(400).json({ success: false, message: 'Payment verification failed' });
+            return res.status(401).json({ success: false, message: 'Payment verification failed' });
         }
 
-        // Signature is valid
-        order.payment.razorpayPaymentId = razorpayPaymentId;
-        order.payment.razorpaySignature = razorpaySignature;
-        order.payment.status = 'paid';
-        order.payment.paidAt = new Date();
+        // SET PAID STATUS before triggering pipeline
+        order.payment = { 
+            ...order.payment, 
+            razorpayPaymentId, 
+            razorpaySignature, 
+            status: 'paid', 
+            paidAt: new Date() 
+        };
         order.status = 'received';
         await order.save();
 
-        console.log(`[${orderId}] ✅ Payment verified — starting pipeline`);
-
-        // Respond immediately to Frontend
-        res.status(200).json({ success: true, orderId });
-
-        // ASYNC PIPELINE (Non-blocking)
+        res.status(200).json({ success: true, message: "Payment verified successfully" });
+        
+        // ASYNC PIPELINE TRIGGER
         runPipeline(orderId);
 
     } catch (error) {
-        console.error('Verify Payment Route Error:', error);
-        if (!res.headersSent) {
-            res.status(500).json({ success: false, message: 'Internal server error' });
-        }
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 });
 
-// GET /api/orders/status/:orderId
+/**
+ * Admin Panel & Support Status Check
+ */
 router.get('/status/:orderId', async (req, res) => {
     try {
         const order = await Order.findOne({ orderId: req.params.orderId }).select('orderId status name plan createdAt');
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
-        }
+        if (!order) return res.status(404).json({ message: 'Order not found' });
         res.json(order);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });

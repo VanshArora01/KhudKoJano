@@ -19,17 +19,19 @@ const generatePDF = async (data, orderId) => {
     const pdfPath = path.join(tempDir, fileName);
 
     const browser = await puppeteer.launch({
-        headless: 'new',
+        headless: true, // Use classic stable headless mode
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
+            '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
             '--disable-extensions',
-            '--single-process'
+            '--disable-web-security',
+            '--font-render-hinting=none',
         ],
         timeout: 60000 
     });

@@ -15,6 +15,8 @@ const OrderSchema = new mongoose.Schema({
     report: {
         rawContent: { type: String },
         pdfPath: { type: String },
+        driveLink: { type: String },
+        cloudinaryUrl: { type: String },
         generatedAt: { type: Date }
     },
     payment: {
