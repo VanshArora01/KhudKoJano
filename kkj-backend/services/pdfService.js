@@ -1,3 +1,4 @@
+process.env.PUPPETEER_CACHE_DIR = "/opt/render/.cache/puppeteer";
 const puppeteer = require('puppeteer');
 const path = require('path');
 const { getReportTemplate } = require('../templates/reportTemplate');
@@ -18,22 +19,15 @@ const generatePDF = async (data, orderId) => {
     const fileName = `${orderId}.pdf`;
     const pdfPath = path.join(tempDir, fileName);
 
+    console.log("🚀 Launching Puppeteer...");
     const browser = await puppeteer.launch({
-        headless: true, // Use classic stable headless mode
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null,
+        headless: "new",
         args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-extensions',
-            '--disable-web-security',
-            '--font-render-hinting=none',
-        ],
-        timeout: 60000 
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu"
+        ]
     });
 
     let page;

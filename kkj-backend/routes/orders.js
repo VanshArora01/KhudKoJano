@@ -15,7 +15,7 @@ const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PRODUCTION CONFIGURATION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const BYPASS_PAYMENT = false; // 🛑 DISABLED FOR PRODUCTION
+const BYPASS_PAYMENT = true; // ⚠️ ENABLED FOR TESTING (BYPASSES RAZORPAY)
 
 // POST /api/orders/create
 router.post('/create', async (req, res) => {
@@ -39,15 +39,18 @@ router.post('/create', async (req, res) => {
         const orderId = `KKJ-${nanoid()}`;
         const amount = plan === 'fasttrack' ? 19900 : 9900; // in paisa
 
-        // ⚠️ ONLY ALLOWED IF EXPLICITLY ENABLED
-        if (BYPASS_PAYMENT && process.env.NODE_ENV !== 'production') {
+        // ⚠️ BYPASS FOR TESTING
+        if (BYPASS_PAYMENT) {
+            console.log(`[${orderId}] 🧪 PAYMENT BYPASS ENABLED — Processing immediately`);
             const newOrder = new Order({
                 orderId, name, email, phone, dateOfBirth, timeOfBirth, placeOfBirth, currentLocation, specificQuestion,
                 plan: plan || 'standard', status: 'received',
-                payment: { status: 'paid', amount, razorpayOrderId: 'BYPASS_TEST' }
+                payment: { status: 'paid', amount, razorpayOrderId: 'BYPASS_TEST', paidAt: new Date() }
             });
             await newOrder.save();
             res.status(201).json({ success: true, orderId, bypass: true });
+            
+            // Trigger pipeline asynchronously
             runPipeline(orderId);
             return;
         }
@@ -215,6 +218,22 @@ router.get('/status/:orderId', async (req, res) => {
         res.json(order);
     } catch (error) {
         res.status(500).json({ message: 'Server error' });
+    }
+});
+
+/**
+ * Compatibility route for frontend bypass testing
+ */
+router.post('/submit-form', async (req, res) => {
+    try {
+        const { orderId } = req.body;
+        console.log(`[${orderId}] 📥 Direct submission received (Bypass Flow)`);
+        // The pipeline is likely already running from /create, but we can re-trigger
+        // runPipeline handles cases where status is already 'received' or further.
+        runPipeline(orderId);
+        res.json({ success: true, message: "Bypass submission accepted" });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
