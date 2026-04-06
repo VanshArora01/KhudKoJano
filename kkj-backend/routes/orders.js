@@ -15,7 +15,7 @@ const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 6);
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PRODUCTION CONFIGURATION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-const BYPASS_PAYMENT = true; // ⚠️ ENABLED FOR TESTING (BYPASSES RAZORPAY)
+const BYPASS_PAYMENT = false; // 🛑 DISABLED FOR PRODUCTION
 
 // POST /api/orders/create
 router.post('/create', async (req, res) => {
