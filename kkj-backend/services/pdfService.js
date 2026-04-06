@@ -3,9 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const { getReportTemplate } = require('../templates/reportTemplate');
 
+/**
+ * PDF Generation Service
+ * Robustly handles Puppeteer Chrome detection on Render.com
+ */
 const generatePDF = async (data, orderId) => {
+    // 1️⃣ Setup Output Path
     const tempDir = path.join(process.cwd(), 'temp');
-
     if (!fs.existsSync(tempDir)) {
         console.log("📂 Creating temp directory:", tempDir);
         fs.mkdirSync(tempDir, { recursive: true });
@@ -14,119 +18,79 @@ const generatePDF = async (data, orderId) => {
     const fileName = `${orderId}.pdf`;
     const pdfPath = path.join(tempDir, fileName);
 
+    // 2️⃣ Setup Chrome Search Paths
+    // We prioritize local .cache/puppeteer inside the project folder
+    const localCache = path.join(process.cwd(), '.cache', 'puppeteer');
+    const legacyCache = '/opt/render/.cache/puppeteer';
+
     console.log("🚀 Launching Puppeteer...");
 
-    // Auto-detect Chromium: Puppeteer will find it via .puppeteerrc.cjs config
-    // or from the default cache location. No hardcoded paths needed.
     let browser;
     try {
+        // Try default launch first
         browser = await puppeteer.launch({
             headless: "new",
-            args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--disable-accelerated-2d-canvas",
-                "--no-first-run",
-                "--no-zygote",
-                "--single-process",
-                "--disable-extensions"
-            ],
-            timeout: 60000
+            args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--single-process"]
         });
     } catch (launchErr) {
-        console.error("❌ Puppeteer launch failed:", launchErr.message);
-        console.log("ℹ️  PUPPETEER_CACHE_DIR:", process.env.PUPPETEER_CACHE_DIR || "(not set)");
-        console.log("ℹ️  HOME:", process.env.HOME || "(not set)");
-
-        // Try fallback: check common Render locations
-        const possiblePaths = [
-            '/opt/render/.cache/puppeteer',
-            '/opt/render/project/.cache/puppeteer',
-            path.join(process.env.HOME || '', '.cache', 'puppeteer'),
-        ];
+        console.error("❌ Standard launch failed, searching for Chrome executable...");
+        console.log("🔍 Looking in:", localCache);
 
         let chromePath = null;
-        for (const base of possiblePaths) {
+        const scanDir = (base) => {
             if (fs.existsSync(base)) {
-                console.log(`📁 Found cache dir: ${base}`);
-                // Walk into chrome directory to find the executable
-                try {
-                    const chromeDir = path.join(base, 'chrome');
-                    if (fs.existsSync(chromeDir)) {
-                        const versions = fs.readdirSync(chromeDir);
-                        if (versions.length > 0) {
-                            const exePath = path.join(chromeDir, versions[0], 'chrome-linux64', 'chrome');
-                            if (fs.existsSync(exePath)) {
-                                chromePath = exePath;
-                                console.log(`✅ Found Chrome executable: ${chromePath}`);
-                                break;
-                            }
+                console.log(`📁 Found directory: ${base}`);
+                const chromeDir = path.join(base, 'chrome');
+                if (fs.existsSync(chromeDir)) {
+                    const entries = fs.readdirSync(chromeDir);
+                    for (const entry of entries) {
+                        const exe = path.join(chromeDir, entry, 'chrome-linux64', 'chrome');
+                        if (fs.existsSync(exe)) {
+                            console.log(`✅ Located Chrome: ${exe}`);
+                            return exe;
                         }
                     }
-                } catch (e) {
-                    console.log(`  Could not scan ${base}:`, e.message);
                 }
             }
-        }
+            return null;
+        };
+
+        chromePath = scanDir(localCache) || scanDir(legacyCache);
 
         if (!chromePath) {
-            throw new Error(`Puppeteer could not find Chrome. Original error: ${launchErr.message}`);
+            throw new Error(`Chrome binary not found. Standard error: ${launchErr.message}`);
         }
 
-        console.log("🔄 Retrying with explicit executablePath:", chromePath);
+        console.log("🔄 Retrying with explicit path...");
         browser = await puppeteer.launch({
-            headless: "new",
             executablePath: chromePath,
-            args: [
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                "--disable-accelerated-2d-canvas",
-                "--no-first-run",
-                "--no-zygote",
-                "--single-process",
-                "--disable-extensions"
-            ],
-            timeout: 60000
+            headless: "new",
+            args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--single-process"]
         });
     }
 
-    console.log("✅ Puppeteer launched successfully");
+    console.log("✅ Puppeteer initialized");
 
     let page;
     try {
         page = await browser.newPage();
-        const orderDate = new Date().toLocaleDateString('en-US', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        });
-
+        const orderDate = new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
         const htmlContent = getReportTemplate(data, orderId, orderDate);
 
-        await page.setContent(htmlContent, {
-            waitUntil: 'domcontentloaded',
-            timeout: 30000
-        });
-
-        // Give fonts extra time to load after DOM is ready
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Font stabilization
 
         const pdfBuffer = await page.pdf({
             format: 'A4',
             printBackground: true,
-            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
-            timeout: 60000
+            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
         });
 
         fs.writeFileSync(pdfPath, pdfBuffer);
-        console.log(`📄 PDF written: ${pdfPath} (${pdfBuffer.length} bytes)`);
+        console.log(`📄 PDF size: ${(pdfBuffer.length / 1024).toFixed(2)} KB`);
         return pdfPath;
     } catch (error) {
-        console.error('PDF Generation Error:', error);
+        console.error('PDF Worker Error:', error);
         throw error;
     } finally {
         if (browser) await browser.close();

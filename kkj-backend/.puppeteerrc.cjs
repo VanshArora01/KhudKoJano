@@ -1,17 +1,9 @@
 const { join } = require('path');
 
 /**
- * Puppeteer Configuration for Render.com deployment.
- * This file is automatically read by Puppeteer at install time and runtime.
- * @see https://pptr.dev/guides/configuration
- * @type {import("puppeteer").Configuration}
+ * Puppeteer Configuration for Render.
+ * We store Chrome INSIDE the project directory so it persists at runtime.
  */
 module.exports = {
-  cacheDirectory: join(
-    process.env.PUPPETEER_CACHE_DIR ||
-    process.env.HOME ||
-    '/opt/render',
-    '.cache',
-    'puppeteer'
-  ),
+  cacheDirectory: join(__dirname, '.cache', 'puppeteer'),
 };
