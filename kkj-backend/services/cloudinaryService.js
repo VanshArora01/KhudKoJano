@@ -1,4 +1,5 @@
 const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
 require('dotenv').config();
 
 cloudinary.config({
@@ -24,7 +25,7 @@ async function uploadPDF(filePath, fileName = 'report') {
     }
 
     const result = await cloudinary.uploader.upload(filePath, {
-      resource_type: "raw", // Required for .pdf / .raw files
+      resource_type: "raw",
       folder: "khudkojano_reports",
       public_id: fileName.replace('.pdf', ''),
     });
@@ -40,7 +41,5 @@ async function uploadPDF(filePath, fileName = 'report') {
     return null;
   }
 }
-
-const fs = require('fs'); // Added for check
 
 module.exports = { uploadPDF };
