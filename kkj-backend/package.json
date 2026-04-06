@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build": "node scripts/install-chrome.js",
+    "build": "npm install && node scripts/install-chrome.js",
     "postinstall": "node scripts/install-chrome.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
